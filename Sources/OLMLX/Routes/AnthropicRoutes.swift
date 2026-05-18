@@ -50,8 +50,8 @@ extension Application {
                 )
             )
         }
-        on(.POST, "v1", "messages", "count_tokens") { _ -> AnthropicTokenCountResponse in
-            return AnthropicTokenCountResponse(inputTokens: 10)
+        on(.POST, "v1", "messages", "count_tokens") { _ async throws -> Response in
+            throw Abort(.notImplemented, reason: "token counting is not implemented")
         }
     }
 }

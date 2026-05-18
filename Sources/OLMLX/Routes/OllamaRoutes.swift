@@ -100,31 +100,36 @@ extension Application {
                     messages: rawMessages, tools: nil, parameters: params)
             }
         }
-        on(.POST, "api", "embed") { req async throws -> EmbedResponse in
-            let body = try req.content.decode(EmbedRequest.self)
-            return EmbedResponse(model: body.model, embeddings: [[0.1, 0.2, 0.3]])
+        on(.POST, "api", "embed") { _ async throws -> Response in
+            throw Abort(.notImplemented, reason: "embedding endpoints are not implemented")
         }
-        on(.POST, "api", "embeddings") { _ async throws -> EmbeddingsResponse in
-            return EmbeddingsResponse(embedding: [0.1, 0.2, 0.3])
+        on(.POST, "api", "embeddings") { _ async throws -> Response in
+            throw Abort(.notImplemented, reason: "embedding endpoints are not implemented")
         }
-        on(.POST, "api", "pull") { _ async throws -> PullResponse in
-            return PullResponse(status: "not implemented", digest: nil, total: nil, completed: nil)
+        on(.POST, "api", "pull") { _ async throws -> Response in
+            throw Abort(.notImplemented, reason: "model pull is not implemented; pre-load models manually")
         }
-        on(.POST, "api", "copy") { _ -> HTTPStatus in .ok }
+        on(.POST, "api", "copy") { _ async throws -> Response in
+            throw Abort(.notImplemented, reason: "model copy is not implemented")
+        }
         on(.DELETE, "api", "delete") { req -> HTTPStatus in
             let body = try req.content.decode(DeleteRequest.self)
             let store = req.application.storage[ModelStoreKey.self]!
             do { try store.delete(name: body.model) } catch { throw Abort(.notFound) }
             return .ok
         }
-        on(.POST, "api", "create") { _ -> HTTPStatus in .ok }
+        on(.POST, "api", "create") { _ async throws -> Response in
+            throw Abort(.notImplemented, reason: "model create is not implemented")
+        }
         on(.POST, "api", "warmup") { req async throws -> HTTPStatus in
             let body = try req.content.decode(WarmupRequest.self)
             let manager = req.application.storage[ModelManagerKey.self]!
             _ = try await manager.ensureLoaded(name: body.model, keepAlive: body.keepAlive)
             return .ok
         }
-        on(.POST, "api", "abort") { _ -> HTTPStatus in .ok }
+        on(.POST, "api", "abort") { _ async throws -> Response in
+            throw Abort(.notImplemented, reason: "request abort is not implemented")
+        }
         on(.POST, "api", "unload") { req -> HTTPStatus in
             let body = try req.content.decode(UnloadRequest.self)
             let manager = req.application.storage[ModelManagerKey.self]!

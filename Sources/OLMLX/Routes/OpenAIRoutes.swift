@@ -61,28 +61,18 @@ extension Application {
                 )
             )
         }
-        on(.POST, "v1", "completions") { req -> OpenAICompletionResponse in
-            let body = try req.content.decode(OpenAICompletionRequest.self)
-            return OpenAICompletionResponse(
-                id: "cmpl-\(UUID().uuidString)",
-                created: Int(Date().timeIntervalSince1970),
-                model: body.model,
-                choices: [
-                    OpenAICompletionChoice(index: 0, text: "Hello!", finishReason: "stop")
-                ]
-            )
+        on(.POST, "v1", "completions") { _ async throws -> Response in
+            throw Abort(
+                .notImplemented,
+                reason: "legacy /v1/completions is not implemented; use /v1/chat/completions instead")
         }
         get("v1", "models") { req -> OpenAIModelList in
             let registry = req.application.storage[ModelRegistryKey.self]!
             let data = registry.listModels().map { OpenAIModel(id: $0) }
             return OpenAIModelList(data: data)
         }
-        on(.POST, "v1", "embeddings") { req -> OpenAIEmbeddingResponse in
-            let body = try req.content.decode(OpenAIEmbeddingRequest.self)
-            return OpenAIEmbeddingResponse(
-                data: [OpenAIEmbeddingData(index: 0, embedding: [0.1, 0.2, 0.3])],
-                model: body.model
-            )
+        on(.POST, "v1", "embeddings") { _ async throws -> Response in
+            throw Abort(.notImplemented, reason: "embedding endpoints are not implemented")
         }
     }
 }
