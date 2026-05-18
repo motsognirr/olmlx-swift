@@ -58,3 +58,40 @@ jobs:
 
       - name: Test
         run: swift test --skip-build
+
+  build:
+    name: Build (release + metallib)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: swift --version
+
+      - name: Cache SwiftPM
+        uses: actions/cache@v4
+        with:
+          path: |
+            .build
+            ~/Library/Caches/org.swift.swiftpm
+          key: ${{ runner.os }}-spm-build-${{ hashFiles('**/Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-build-
+            ${{ runner.os }}-spm-
+
+      - name: Ensure Metal Toolchain available
+        run: |
+          xcodebuild -version
+          if xcrun -sdk macosx metal --version 2>&1; then
+            echo "Metal compiler already available."
+          else
+            echo "Metal compiler missing; downloading Metal Toolchain component..."
+            sudo xcodebuild -downloadComponent MetalToolchain
+            xcrun -sdk macosx metal --version
+          fi
+
+      - name: make build
+        run: make build
+
+      - name: make verify-metallib
+        run: make verify-metallib
