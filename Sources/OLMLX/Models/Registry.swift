@@ -74,17 +74,16 @@ public struct ModelConfig: Codable, Sendable {
         experimental = try container.decodeIfPresent([String: AnyCodable].self, forKey: .experimental)
     }
 
-    public func resolvedSpeculative() -> SpeculativeConfig {
-        let globalSettings = Settings.shared
-        let enabled = speculative || globalSettings.speculative
-        let draft = speculativeDraftModel ?? globalSettings.speculativeDraftModel
-        let tokens = speculativeTokens ?? globalSettings.speculativeTokens
+    public func resolvedSpeculative(global: Settings) -> SpeculativeConfig {
+        let enabled = speculative || global.speculative
+        let draft = speculativeDraftModel ?? global.speculativeDraftModel
+        let tokens = speculativeTokens ?? global.speculativeTokens
         let strategy = speculativeStrategy
         return SpeculativeConfig(enabled: enabled, draftModel: draft, numTokens: tokens, strategy: strategy)
     }
 
-    public func resolvedKVCacheQuant() -> String? {
-        return kvCacheQuant ?? Settings.shared.kvCacheQuant
+    public func resolvedKVCacheQuant(global: Settings) -> String? {
+        return kvCacheQuant ?? global.kvCacheQuant
     }
 }
 
