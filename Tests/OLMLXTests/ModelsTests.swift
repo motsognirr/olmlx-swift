@@ -123,4 +123,21 @@ struct ModelStoreTests {
         try store.saveBlob(digest: "abc", data: Data("hello".utf8))
         #expect(store.hasBlob(digest: "abc") == true)
     }
+
+    @Test func downloadRejectsInvalidHFPath() async {
+        let tmpDir = FileManager.default.temporaryDirectory
+        let modelsDir = tmpDir.appendingPathComponent("olmlx-dl-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: modelsDir) }
+
+        let registry = ModelRegistry(configPath: modelsDir.appendingPathComponent("models.json"))
+        let store = ModelStore(modelsDir: modelsDir, registry: registry)
+
+        // Single-segment paths are not valid HuggingFace "namespace/name" paths.
+        await #expect(throws: ModelStoreError.self) {
+            _ = try await store.download(hfPath: "no-slash")
+        }
+        await #expect(throws: ModelStoreError.self) {
+            _ = try await store.download(hfPath: "")
+        }
+    }
 }

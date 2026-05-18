@@ -1,4 +1,5 @@
 import Foundation
+import HuggingFace
 
 /// Models are addressed by HuggingFace path; `ModelStore` knows where they live
 /// on disk. It holds no mutable state — all methods are pure functions over
@@ -7,10 +8,16 @@ import Foundation
 public final class ModelStore: Sendable {
     private let modelsDir: URL
     private let registry: ModelRegistry
+    private let hubHost: URL
 
-    public init(modelsDir: URL, registry: ModelRegistry) {
+    public init(
+        modelsDir: URL,
+        registry: ModelRegistry,
+        hubHost: URL = URL(string: "https://huggingface.co")!
+    ) {
         self.modelsDir = modelsDir
         self.registry = registry
+        self.hubHost = hubHost
     }
 
     public func localPath(for hfPath: String) -> URL {
@@ -18,12 +25,51 @@ public final class ModelStore: Sendable {
         return modelsDir.appendingPathComponent(safeName)
     }
 
-    public func ensureDownloaded(hfPath: String) async throws -> URL {
+    /// Returns the local snapshot path for `hfPath`, downloading from
+    /// HuggingFace Hub if it is not already present on disk. Progress is
+    /// reported via `progressHandler` if supplied.
+    ///
+    /// `hfPath` must be in `"namespace/name"` form. Throws
+    /// `ModelStoreError.invalidHFPath` otherwise.
+    public func ensureDownloaded(
+        hfPath: String,
+        progressHandler: (@MainActor @Sendable (Progress) -> Void)? = nil
+    ) async throws -> URL {
         let path = localPath(for: hfPath)
         if FileManager.default.fileExists(atPath: path.path) {
             return path
         }
-        throw ModelStoreError.notDownloaded(hfPath)
+        return try await download(hfPath: hfPath, to: path, progressHandler: progressHandler)
+    }
+
+    /// Downloads the full snapshot of `hfPath` into `destination`, replacing
+    /// any partial download.
+    public func download(
+        hfPath: String,
+        to destination: URL? = nil,
+        progressHandler: (@MainActor @Sendable (Progress) -> Void)? = nil
+    ) async throws -> URL {
+        let parts = hfPath.split(separator: "/", maxSplits: 1).map(String.init)
+        guard parts.count == 2, !parts[0].isEmpty, !parts[1].isEmpty else {
+            throw ModelStoreError.invalidHFPath(hfPath)
+        }
+        let target = destination ?? localPath(for: hfPath)
+        try FileManager.default.createDirectory(at: target, withIntermediateDirectories: true)
+
+        let repoID = Repo.ID(namespace: parts[0], name: parts[1])
+        let client = HubClient(host: hubHost)
+        do {
+            _ = try await client.downloadSnapshot(
+                of: repoID,
+                to: target,
+                progressHandler: progressHandler
+            )
+        } catch {
+            // Clean up half-written directory so the next attempt starts fresh.
+            try? FileManager.default.removeItem(at: target)
+            throw ModelStoreError.downloadFailed(hfPath, error)
+        }
+        return target
     }
 
     public func listLocal() throws -> [ModelManifest] {
@@ -77,4 +123,6 @@ public final class ModelStore: Sendable {
 public enum ModelStoreError: Error, Sendable {
     case notDownloaded(String)
     case modelNotFound(String)
+    case invalidHFPath(String)
+    case downloadFailed(String, any Error)
 }
