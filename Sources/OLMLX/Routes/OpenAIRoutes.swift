@@ -66,9 +66,9 @@ extension Application {
                 .notImplemented,
                 reason: "legacy /v1/completions is not implemented; use /v1/chat/completions instead")
         }
-        get("v1", "models") { req -> OpenAIModelList in
+        get("v1", "models") { req async throws -> OpenAIModelList in
             let registry = req.application.storage[ModelRegistryKey.self]!
-            let data = registry.listModels().map { OpenAIModel(id: $0) }
+            let data = await registry.listModels().map { OpenAIModel(id: $0) }
             return OpenAIModelList(data: data)
         }
         on(.POST, "v1", "embeddings") { _ async throws -> Response in

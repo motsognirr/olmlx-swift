@@ -87,11 +87,10 @@ public struct ModelConfig: Codable, Sendable {
     }
 }
 
-public final class ModelRegistry: @unchecked Sendable {
+public actor ModelRegistry {
     private var mappings: [String: ModelConfig] = [:]
     private var aliases: [String: String] = [:]
     private let configPath: URL
-    private let lock = NSLock()
 
     public init(configPath: URL) {
         self.configPath = configPath
@@ -103,9 +102,6 @@ public final class ModelRegistry: @unchecked Sendable {
     }
 
     public func load() throws {
-        lock.lock()
-        defer { lock.unlock() }
-
         guard FileManager.default.fileExists(atPath: configPath.path) else { return }
 
         let data = try Data(contentsOf: configPath)
@@ -135,9 +131,6 @@ public final class ModelRegistry: @unchecked Sendable {
     }
 
     public func save() throws {
-        lock.lock()
-        defer { lock.unlock() }
-
         let dir = configPath.deletingLastPathComponent()
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
 
@@ -164,8 +157,6 @@ public final class ModelRegistry: @unchecked Sendable {
     }
 
     public func resolve(_ name: String) -> ModelConfig? {
-        lock.lock()
-        defer { lock.unlock() }
         let normalized = Self.normalizeName(name)
         if let config = mappings[normalized] { return config }
         if let target = aliases[normalized] { return mappings[target] }
@@ -173,33 +164,23 @@ public final class ModelRegistry: @unchecked Sendable {
     }
 
     public func listModels() -> [String] {
-        lock.lock()
-        defer { lock.unlock() }
         return Array(mappings.keys).sorted()
     }
 
     public func search(_ query: String) -> [String] {
-        lock.lock()
-        defer { lock.unlock() }
         let lowerQ = query.lowercased()
         return mappings.keys.filter { $0.lowercased().contains(lowerQ) }.sorted()
     }
 
     public func addMapping(name: String, config: ModelConfig) {
-        lock.lock()
-        defer { lock.unlock() }
         mappings[Self.normalizeName(name)] = config
     }
 
     public func addAlias(alias: String, target: String) {
-        lock.lock()
-        defer { lock.unlock() }
         aliases[Self.normalizeName(alias)] = target
     }
 
     public func remove(_ name: String) {
-        lock.lock()
-        defer { lock.unlock() }
         let normalized = Self.normalizeName(name)
         mappings.removeValue(forKey: normalized)
         aliases.removeValue(forKey: normalized)

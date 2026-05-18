@@ -47,41 +47,41 @@ struct ModelRegistryTests {
         #expect(ModelRegistry.normalizeName("llama2:7b") == "llama2:7b")
     }
 
-    @Test func addAndResolve() {
+    @Test func addAndResolve() async {
         let tmpDir = FileManager.default.temporaryDirectory
         let configPath = tmpDir.appendingPathComponent("test-models.json")
         let registry = ModelRegistry(configPath: configPath)
 
-        registry.addMapping(name: "test-model", config: ModelConfig(hfPath: "org/test"))
-        let resolved = registry.resolve("test-model")
+        await registry.addMapping(name: "test-model", config: ModelConfig(hfPath: "org/test"))
+        let resolved = await registry.resolve("test-model")
         #expect(resolved != nil)
         #expect(resolved?.hfPath == "org/test")
     }
 
-    @Test func search() {
+    @Test func search() async {
         let tmpDir = FileManager.default.temporaryDirectory
         let configPath = tmpDir.appendingPathComponent("test-models.json")
         let registry = ModelRegistry(configPath: configPath)
 
-        registry.addMapping(name: "llama2", config: ModelConfig(hfPath: "meta/llama2"))
-        registry.addMapping(name: "qwen3", config: ModelConfig(hfPath: "qwen/qwen3"))
-        registry.addMapping(name: "gemma", config: ModelConfig(hfPath: "google/gemma"))
+        await registry.addMapping(name: "llama2", config: ModelConfig(hfPath: "meta/llama2"))
+        await registry.addMapping(name: "qwen3", config: ModelConfig(hfPath: "qwen/qwen3"))
+        await registry.addMapping(name: "gemma", config: ModelConfig(hfPath: "google/gemma"))
 
-        let results = registry.search("llama")
+        let results = await registry.search("llama")
         #expect(results.count == 1)
         #expect(results.contains("llama2:latest"))
     }
 
-    @Test func remove() {
+    @Test func remove() async {
         let tmpDir = FileManager.default.temporaryDirectory
         let configPath = tmpDir.appendingPathComponent("test-models.json")
         let registry = ModelRegistry(configPath: configPath)
 
-        registry.addMapping(name: "test-model", config: ModelConfig(hfPath: "org/test"))
-        #expect(registry.resolve("test-model") != nil)
+        await registry.addMapping(name: "test-model", config: ModelConfig(hfPath: "org/test"))
+        #expect(await registry.resolve("test-model") != nil)
 
-        registry.remove("test-model")
-        #expect(registry.resolve("test-model") == nil)
+        await registry.remove("test-model")
+        #expect(await registry.resolve("test-model") == nil)
     }
 }
 
@@ -98,7 +98,7 @@ struct ModelStoreTests {
         #expect(try store.listLocal().count == 0)
     }
 
-    @Test func deleteModelNotFound() {
+    @Test func deleteModelNotFound() async {
         let tmpDir = FileManager.default.temporaryDirectory
         let modelsDir = tmpDir.appendingPathComponent("olmlx-del-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: modelsDir) }
@@ -106,8 +106,8 @@ struct ModelStoreTests {
         let registry = ModelRegistry(configPath: modelsDir.appendingPathComponent("models.json"))
         let store = ModelStore(modelsDir: modelsDir, registry: registry)
 
-        #expect(throws: ModelStoreError.self) {
-            try store.delete(name: "nonexistent")
+        await #expect(throws: ModelStoreError.self) {
+            try await store.delete(name: "nonexistent")
         }
     }
 

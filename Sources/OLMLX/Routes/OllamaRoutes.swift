@@ -10,10 +10,12 @@ extension Application {
         }
         get("api", "tags") { req async throws -> TagsResponse in
             let registry = req.application.storage[ModelRegistryKey.self]!
-            let names = registry.listModels()
-            let models = names.compactMap { name -> ModelInfo? in
-                guard let config = registry.resolve(name) else { return nil }
-                return ModelInfo(name: name, model: config.hfPath)
+            let names = await registry.listModels()
+            var models: [ModelInfo] = []
+            for name in names {
+                if let config = await registry.resolve(name) {
+                    models.append(ModelInfo(name: name, model: config.hfPath))
+                }
             }
             return TagsResponse(models: models)
         }
@@ -22,11 +24,11 @@ extension Application {
             let registry = req.application.storage[ModelRegistryKey.self]!
             let store = req.application.storage[ModelStoreKey.self]!
 
-            guard let config = registry.resolve(body.model) else {
+            guard let config = await registry.resolve(body.model) else {
                 throw Abort(.notFound, reason: "model not found")
             }
 
-            let manifest = try? store.show(name: body.model)
+            let manifest = try? await store.show(name: body.model)
 
             var modelInfo: [String: AnyCodable] = [:]
             if let m = manifest {
@@ -112,10 +114,10 @@ extension Application {
         on(.POST, "api", "copy") { _ async throws -> Response in
             throw Abort(.notImplemented, reason: "model copy is not implemented")
         }
-        on(.DELETE, "api", "delete") { req -> HTTPStatus in
+        on(.DELETE, "api", "delete") { req async throws -> HTTPStatus in
             let body = try req.content.decode(DeleteRequest.self)
             let store = req.application.storage[ModelStoreKey.self]!
-            do { try store.delete(name: body.model) } catch { throw Abort(.notFound) }
+            do { try await store.delete(name: body.model) } catch { throw Abort(.notFound) }
             return .ok
         }
         on(.POST, "api", "create") { _ async throws -> Response in

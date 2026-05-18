@@ -152,6 +152,36 @@ public enum AnyCodable: Codable, Sendable {
     case array([AnyCodable])
     case null
 
+    /// Converts a value produced by `JSONSerialization` (`Any`) into a `Sendable`
+    /// `AnyCodable`. Unknown types collapse to `.null`. `Bool` is checked before
+    /// numeric types because Apple's bridging treats `NSNumber(bool)` as both
+    /// `Bool` and `Int`.
+    public static func from(_ value: Any) -> AnyCodable {
+        if value is NSNull { return .null }
+        if let n = value as? NSNumber {
+            // Distinguish Bool-bridged NSNumber from numeric NSNumber.
+            if CFGetTypeID(n) == CFBooleanGetTypeID() { return .bool(n.boolValue) }
+            let objCType = String(cString: n.objCType)
+            if objCType == "q" || objCType == "i" || objCType == "l" || objCType == "s"
+                || objCType == "Q" || objCType == "I" || objCType == "L" || objCType == "S"
+            {
+                return .int(n.intValue)
+            }
+            return .double(n.doubleValue)
+        }
+        if let v = value as? Bool { return .bool(v) }
+        if let v = value as? Int { return .int(v) }
+        if let v = value as? Double { return .double(v) }
+        if let v = value as? String { return .string(v) }
+        if let v = value as? [String: Any] {
+            return .dictionary(v.mapValues(AnyCodable.from))
+        }
+        if let v = value as? [Any] {
+            return .array(v.map(AnyCodable.from))
+        }
+        return .null
+    }
+
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         if container.decodeNil() {
