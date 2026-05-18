@@ -5,10 +5,12 @@ import Vapor
 func fullChatResponse(
     modelName: String, container: ModelContainer,
     messages: [[String: any Sendable]], tools: [[String: any Sendable]]?,
-    parameters: GenerateParameters
+    parameters: GenerateParameters,
+    cacheContext: PromptCacheContext? = nil
 ) async throws -> Response {
     let (text, info) = try await runGeneration(
-        container: container, messages: messages, tools: tools, parameters: parameters)
+        container: container, messages: messages, tools: tools,
+        parameters: parameters, cacheContext: cacheContext)
 
     let msg = ChatResponse(
         model: modelName,
@@ -30,7 +32,8 @@ func fullChatResponse(
 func streamingChatResponse(
     modelName: String, container: ModelContainer,
     messages: [[String: any Sendable]], tools: [[String: any Sendable]]?,
-    parameters: GenerateParameters
+    parameters: GenerateParameters,
+    cacheContext: PromptCacheContext? = nil
 ) -> Response {
     let response = Response(status: .ok)
     response.headers.contentType = .init(type: "application", subType: "x-ndjson")
@@ -40,7 +43,7 @@ func streamingChatResponse(
             do {
                 try await runStreamingGeneration(
                     container: container, messages: messages, tools: tools,
-                    parameters: parameters,
+                    parameters: parameters, cacheContext: cacheContext,
                     onChunk: { text in
                         let msg = ChatResponse(
                             model: modelName,

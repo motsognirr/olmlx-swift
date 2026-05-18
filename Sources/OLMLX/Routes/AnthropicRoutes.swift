@@ -33,11 +33,13 @@ extension Application {
                 return dict
             }
 
+            let cache = await manager.cacheContext(for: model)
             let (text, info) = try await runGeneration(
                 container: container,
                 messages: rawMessages,
                 tools: nil,
-                parameters: params
+                parameters: params,
+                cacheContext: cache
             )
 
             return AnthropicMessagesResponse(

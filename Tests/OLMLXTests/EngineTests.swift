@@ -128,7 +128,8 @@ struct KeepAliveTests {
 struct PromptCacheTests {
     @Test func setAndGet() async {
         let cache = PromptCacheStore(maxSlots: 4)
-        await cache.set(key: "test", state: CachedPromptState(tokens: [1, 2, 3]))
+        let entry = PromptCacheEntry(tokens: [1, 2, 3], caches: [])
+        await cache.set(key: "test", entry: entry)
         let retrieved = await cache.get(key: "test")
         #expect(retrieved != nil)
         #expect(retrieved?.tokens == [1, 2, 3])
@@ -136,11 +137,43 @@ struct PromptCacheTests {
 
     @Test func lruEviction() async {
         let cache = PromptCacheStore(maxSlots: 2)
-        await cache.set(key: "a", state: CachedPromptState(tokens: [1]))
-        await cache.set(key: "b", state: CachedPromptState(tokens: [2]))
-        await cache.set(key: "c", state: CachedPromptState(tokens: [3]))
+        await cache.set(key: "a", entry: PromptCacheEntry(tokens: [1], caches: []))
+        await cache.set(key: "b", entry: PromptCacheEntry(tokens: [2], caches: []))
+        await cache.set(key: "c", entry: PromptCacheEntry(tokens: [3], caches: []))
         #expect(await cache.get(key: "a") == nil)
         #expect(await cache.get(key: "b") != nil)
+        #expect(await cache.get(key: "c") != nil)
+    }
+
+    @Test func takeRemovesEntry() async {
+        let cache = PromptCacheStore(maxSlots: 2)
+        await cache.set(key: "k", entry: PromptCacheEntry(tokens: [1, 2], caches: []))
+        let first = await cache.take(key: "k")
+        #expect(first != nil)
+        #expect(first?.tokens == [1, 2])
+        // Once taken, the entry is gone — a concurrent request would see a miss
+        // and build its own cache instead of sharing a mutable [KVCache].
+        let second = await cache.take(key: "k")
+        #expect(second == nil)
+    }
+
+    @Test func removeInvalidatesEntry() async {
+        let cache = PromptCacheStore(maxSlots: 4)
+        await cache.set(key: "k", entry: PromptCacheEntry(tokens: [1], caches: []))
+        await cache.remove(key: "k")
+        #expect(await cache.get(key: "k") == nil)
+    }
+
+    @Test func updatesPromoteToMostRecent() async {
+        let cache = PromptCacheStore(maxSlots: 2)
+        await cache.set(key: "a", entry: PromptCacheEntry(tokens: [1], caches: []))
+        await cache.set(key: "b", entry: PromptCacheEntry(tokens: [2], caches: []))
+        // Touch "a" so it becomes most recently used, then insert "c". "b"
+        // should be evicted instead of "a".
+        await cache.set(key: "a", entry: PromptCacheEntry(tokens: [1, 2], caches: []))
+        await cache.set(key: "c", entry: PromptCacheEntry(tokens: [3], caches: []))
+        #expect(await cache.get(key: "a") != nil)
+        #expect(await cache.get(key: "b") == nil)
         #expect(await cache.get(key: "c") != nil)
     }
 }

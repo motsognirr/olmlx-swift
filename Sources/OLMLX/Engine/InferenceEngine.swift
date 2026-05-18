@@ -206,6 +206,112 @@ public final class MockInferenceEngine: InferenceEngineProtocol, @unchecked Send
     }
 }
 
+// MARK: - Prompt Cache Plumbing
+
+/// Configuration handed to `runGeneration`/`runStreamingGeneration` to enable
+/// KV-cache reuse across requests.
+public struct PromptCacheContext: Sendable {
+    public let store: PromptCacheStore
+    public let key: String
+    public let maxTokens: Int?
+
+    public init(store: PromptCacheStore, key: String, maxTokens: Int?) {
+        self.store = store
+        self.key = key
+        self.maxTokens = maxTokens
+    }
+}
+
+/// Result of consulting the cache and preparing tokens for inference.
+private struct PreparedPrompt {
+    let lmInput: LMInput
+    let kvCaches: [KVCache]
+    let fullPromptTokens: [Int]
+    let reusedFromCache: Bool
+}
+
+private func prepareForGeneration(
+    context: ModelContext,
+    messages: [[String: any Sendable]],
+    tools: [[String: any Sendable]]?,
+    parameters: GenerateParameters,
+    cachedEntry: PromptCacheEntry?
+) throws -> PreparedPrompt {
+    let tokenIds = try context.tokenizer.applyChatTemplate(
+        messages: messages, tools: tools, additionalContext: nil)
+
+    let kvCaches: [KVCache]
+    let inputTokens: [Int]
+    let reused: Bool
+    if let entry = cachedEntry,
+        entry.tokens.count > 0,
+        tokenIds.count > entry.tokens.count,
+        entry.tokens == Array(tokenIds.prefix(entry.tokens.count))
+    {
+        kvCaches = entry.caches
+        inputTokens = Array(tokenIds.dropFirst(entry.tokens.count))
+        reused = true
+    } else {
+        kvCaches = makePromptCache(model: context.model, parameters: parameters)
+        inputTokens = tokenIds
+        reused = false
+    }
+
+    let promptArray = MLXArray(inputTokens).asType(.int32)
+    let mask = MLXArray.ones([promptArray.size]).asType(.bool)
+    let input = LMInput(
+        text: LMInput.Text(tokens: promptArray, mask: mask),
+        image: nil, video: nil)
+
+    return PreparedPrompt(
+        lmInput: input, kvCaches: kvCaches,
+        fullPromptTokens: tokenIds, reusedFromCache: reused)
+}
+
+/// Patch up the engine's completion info so callers see the *full* prompt token
+/// count even when most of it came from a cache hit. Without this the
+/// `prompt_eval_count` reported to clients only reflects the suffix that was
+/// actually prefilled this call.
+private func adjustInfo(
+    _ info: GenerateCompletionInfo?, fullPromptTokens: Int
+) -> GenerateCompletionInfo? {
+    guard let info else { return nil }
+    if info.promptTokenCount == fullPromptTokens { return info }
+    return GenerateCompletionInfo(
+        promptTokenCount: fullPromptTokens,
+        generationTokenCount: info.generationTokenCount,
+        promptTime: info.promptTime,
+        generationTime: info.generateTime,
+        stopReason: info.stopReason
+    )
+}
+
+/// Trim a freshly used cache back to prompt-only state and return it to the store.
+///
+/// We don't keep the generated tokens in the cache because we can't observe the
+/// raw token ids that came out of `MLXLMCommon.generate` — only decoded text.
+/// Storing only the prompt prefix keeps `tokens.count == caches.first.offset`,
+/// which is the invariant the prefix-match code relies on.
+private func persistCache(
+    context: PromptCacheContext?,
+    entry: PromptCacheEntry
+) async {
+    guard let context else { return }
+    if let limit = context.maxTokens, entry.tokens.count > limit { return }
+    if entry.caches.isEmpty { return }
+    let currentOffset = entry.caches.first?.offset ?? 0
+    let extra = currentOffset - entry.tokens.count
+    if extra > 0, canTrimPromptCache(entry.caches) {
+        trimPromptCache(entry.caches, numTokens: extra)
+    } else if extra != 0 {
+        // Offset doesn't line up with prompt tokens (likely a rotating cache
+        // overflowed past the prompt). Don't persist a cache we can't reason
+        // about.
+        return
+    }
+    await context.store.set(key: context.key, entry: entry)
+}
+
 // MARK: - Generation Runners
 
 /// Runs generation via a ``ModelContainer`` and collects the full response.
@@ -213,23 +319,32 @@ public func runGeneration(
     container: ModelContainer,
     messages: [[String: any Sendable]],
     tools: [[String: any Sendable]]?,
-    parameters: GenerateParameters
+    parameters: GenerateParameters,
+    cacheContext: PromptCacheContext? = nil
 ) async throws -> (text: String, info: GenerateCompletionInfo?) {
-    return try await container.perform { context -> (String, GenerateCompletionInfo?) in
-        let tokenIds = try context.tokenizer.applyChatTemplate(
-            messages: messages, tools: tools, additionalContext: nil)
+    // Take the entry out of the store before entering `container.perform` so a
+    // concurrent request for the same key sees a miss instead of stomping on a
+    // mutable `[KVCache]` that another generation is already using. The prefix
+    // match is re-verified inside the perform block once we have the tokens.
+    let cachedEntry: PromptCacheEntry?
+    if let cacheContext {
+        cachedEntry = await cacheContext.store.take(key: cacheContext.key)
+    } else {
+        cachedEntry = nil
+    }
 
-        let promptArray = MLXArray(tokenIds).asType(.int32)
-        let mask = MLXArray.ones([promptArray.size]).asType(.bool)
-        let input = LMInput(
-            text: LMInput.Text(tokens: promptArray, mask: mask),
-            image: nil, video: nil)
+    let outcome = try await container.perform {
+        context -> (String, GenerateCompletionInfo?, PromptCacheEntry) in
+        let prepared = try prepareForGeneration(
+            context: context, messages: messages, tools: tools,
+            parameters: parameters, cachedEntry: cachedEntry)
 
         var fullText = ""
         var completionInfo: GenerateCompletionInfo?
 
         let stream = try MLXLMCommon.generate(
-            input: input, parameters: parameters, context: context)
+            input: prepared.lmInput, cache: prepared.kvCaches,
+            parameters: parameters, context: context)
         for await generation in stream {
             switch generation {
             case .chunk(let text):
@@ -241,8 +356,14 @@ public func runGeneration(
             }
         }
 
-        return (fullText, completionInfo)
+        let postEntry = PromptCacheEntry(
+            tokens: prepared.fullPromptTokens, caches: prepared.kvCaches)
+        return (fullText, completionInfo, postEntry)
     }
+
+    let (text, info, postEntry) = outcome
+    await persistCache(context: cacheContext, entry: postEntry)
+    return (text, adjustInfo(info, fullPromptTokens: postEntry.tokens.count))
 }
 
 /// Runs streaming generation via a ``ModelContainer``, calling back for each chunk.
@@ -251,31 +372,40 @@ public func runStreamingGeneration(
     messages: [[String: any Sendable]],
     tools: [[String: any Sendable]]?,
     parameters: GenerateParameters,
+    cacheContext: PromptCacheContext? = nil,
     onChunk: @Sendable @escaping (String) -> Void,
     onComplete: @Sendable @escaping (GenerateCompletionInfo?) -> Void
 ) async throws {
-    try await container.perform { context in
-        let tokenIds = try context.tokenizer.applyChatTemplate(
-            messages: messages, tools: tools, additionalContext: nil)
+    let cachedEntry: PromptCacheEntry?
+    if let cacheContext {
+        cachedEntry = await cacheContext.store.take(key: cacheContext.key)
+    } else {
+        cachedEntry = nil
+    }
 
-        let promptArray = MLXArray(tokenIds).asType(.int32)
-        let mask = MLXArray.ones([promptArray.size]).asType(.bool)
-        let input = LMInput(
-            text: LMInput.Text(tokens: promptArray, mask: mask),
-            image: nil, video: nil)
+    let postEntry = try await container.perform { context -> PromptCacheEntry in
+        let prepared = try prepareForGeneration(
+            context: context, messages: messages, tools: tools,
+            parameters: parameters, cachedEntry: cachedEntry)
 
         let stream = try MLXLMCommon.generate(
-            input: input, parameters: parameters, context: context)
+            input: prepared.lmInput, cache: prepared.kvCaches,
+            parameters: parameters, context: context)
 
         for await generation in stream {
             switch generation {
             case .chunk(let text):
                 onChunk(text)
             case .info(let info):
-                onComplete(info)
+                onComplete(adjustInfo(info, fullPromptTokens: prepared.fullPromptTokens.count))
             case .toolCall:
                 break
             }
         }
+
+        return PromptCacheEntry(
+            tokens: prepared.fullPromptTokens, caches: prepared.kvCaches)
     }
+
+    await persistCache(context: cacheContext, entry: postEntry)
 }

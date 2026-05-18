@@ -67,15 +67,18 @@ extension Application {
             let params = mapToGenerateParameters(from: body.options)
             let rawMessages = messagesToRaw(body.messages)
             let rawTools = toolsToRaw(body.tools)
+            let cache = await manager.cacheContext(for: model)
 
             if body.stream {
                 return streamingChatResponse(
                     modelName: body.model, container: container,
-                    messages: rawMessages, tools: rawTools, parameters: params)
+                    messages: rawMessages, tools: rawTools, parameters: params,
+                    cacheContext: cache)
             } else {
                 return try await fullChatResponse(
                     modelName: body.model, container: container,
-                    messages: rawMessages, tools: rawTools, parameters: params)
+                    messages: rawMessages, tools: rawTools, parameters: params,
+                    cacheContext: cache)
             }
         }
         on(.POST, "api", "generate") { req async throws -> Response in
@@ -91,15 +94,18 @@ extension Application {
             let rawMessages: [[String: any Sendable]] = [
                 ["role": "user", "content": body.prompt]
             ]
+            let cache = await manager.cacheContext(for: model)
 
             if body.stream {
                 return streamingChatResponse(
                     modelName: body.model, container: container,
-                    messages: rawMessages, tools: nil, parameters: params)
+                    messages: rawMessages, tools: nil, parameters: params,
+                    cacheContext: cache)
             } else {
                 return try await fullChatResponse(
                     modelName: body.model, container: container,
-                    messages: rawMessages, tools: nil, parameters: params)
+                    messages: rawMessages, tools: nil, parameters: params,
+                    cacheContext: cache)
             }
         }
         on(.POST, "api", "embed") { _ async throws -> Response in

@@ -28,13 +28,19 @@ public struct LoadedModel: Sendable {
     }
 }
 
-public struct CachedPromptState: Sendable {
+/// Live snapshot of a model's KV cache plus the prompt tokens that produced it.
+///
+/// `caches` is the same `[KVCache]` instance handed to `MLXLMCommon.generate`
+/// across calls; it grows in-place during prefill+decoding and is trimmed back
+/// to prompt-only state before being stored. `tokens` records exactly the
+/// token ids in the cache so the next request can prefix-match deterministically.
+public final class PromptCacheEntry: @unchecked Sendable {
     public var tokens: [Int]
-    public var cacheID: String?
+    public var caches: [KVCache]
 
-    public init(tokens: [Int], cacheID: String? = nil) {
+    public init(tokens: [Int], caches: [KVCache]) {
         self.tokens = tokens
-        self.cacheID = cacheID
+        self.caches = caches
     }
 }
 
@@ -57,7 +63,7 @@ public func parseKeepAlive(_ value: String) -> TimeInterval? {
 }
 
 public actor PromptCacheStore {
-    private var store: [String: CachedPromptState] = [:]
+    private var store: [String: PromptCacheEntry] = [:]
     private let maxSlots: Int
     private var accessOrder: [String] = []
 
@@ -65,20 +71,31 @@ public actor PromptCacheStore {
         self.maxSlots = maxSlots
     }
 
-    public func get(key: String) -> CachedPromptState? {
+    public func get(key: String) -> PromptCacheEntry? {
         return store[key]
     }
 
-    public func set(key: String, state: CachedPromptState) {
+    public func set(key: String, entry: PromptCacheEntry) {
         if store[key] == nil && store.count >= maxSlots {
             if let oldest = accessOrder.first {
                 store.removeValue(forKey: oldest)
                 accessOrder.removeFirst()
             }
         }
-        store[key] = state
+        store[key] = entry
         accessOrder.removeAll { $0 == key }
         accessOrder.append(key)
+    }
+
+    /// Atomically remove and return the entry for `key` if one exists. The
+    /// caller becomes the sole owner of the `[KVCache]` until it calls `set`
+    /// (or drops the entry on the floor), preventing two concurrent generations
+    /// from sharing a mutable cache.
+    public func take(key: String) -> PromptCacheEntry? {
+        guard let entry = store[key] else { return nil }
+        store.removeValue(forKey: key)
+        accessOrder.removeAll { $0 == key }
+        return entry
     }
 
     public func remove(key: String) {
@@ -174,6 +191,20 @@ public actor ModelManager {
 
     public func invalidatePromptCache(for model: String) async {
         await promptCache.remove(key: ModelRegistry.normalizeName(model))
+    }
+
+    /// Build a cache context for use in `runGeneration`/`runStreamingGeneration`.
+    ///
+    /// Returns nil when caching is disabled in settings or when caching for this
+    /// model isn't supported (currently VLMs — image/video tokens aren't
+    /// reflected in the textual prefix-match invariant).
+    public func cacheContext(for model: LoadedModel) -> PromptCacheContext? {
+        guard settings.promptCache, !model.isVLM else { return nil }
+        return PromptCacheContext(
+            store: promptCache,
+            key: ModelRegistry.normalizeName(model.name),
+            maxTokens: settings.promptCacheMaxTokens
+        )
     }
 
     public nonisolated func startExpiryChecker() -> Task<Void, Never> {
