@@ -1,0 +1,204 @@
+import Foundation
+import MLXLMCommon
+
+public struct LoadedModel: @unchecked Sendable {
+    public var name: String
+    public var hfPath: String
+    public var isVLM: Bool = false
+    public var templateCaps: TemplateCaps
+    public var config: ModelConfig
+    public var loadedAt: Date = Date()
+    public var expiresAt: Date?
+    public var container: ModelContainer?
+
+    public init(name: String, hfPath: String, isVLM: Bool = false,
+                templateCaps: TemplateCaps = TemplateCaps(),
+                config: ModelConfig, expiresAt: Date? = nil,
+                container: ModelContainer? = nil) {
+        self.name = name
+        self.hfPath = hfPath
+        self.isVLM = isVLM
+        self.templateCaps = templateCaps
+        self.config = config
+        self.loadedAt = Date()
+        self.expiresAt = expiresAt
+        self.container = container
+    }
+}
+
+public struct CachedPromptState: Sendable {
+    public var tokens: [Int]
+    public var cacheID: String?
+
+    public init(tokens: [Int], cacheID: String? = nil) {
+        self.tokens = tokens
+        self.cacheID = cacheID
+    }
+}
+
+public enum ModelLoadError: Error, Sendable {
+    case notFound(String)
+    case loadTimeout(String)
+    case serverBusy
+    case inferenceError(String)
+}
+
+public func parseKeepAlive(_ value: String) -> TimeInterval? {
+    let lower = value.lowercased()
+    if lower == "0" || lower == "0s" || lower == "0m" || lower == "0h" { return 0 }
+    if let num = Double(lower.filter { $0.isNumber || $0 == "." }) {
+        if lower.hasSuffix("s") { return num }
+        if lower.hasSuffix("m") { return num * 60 }
+        if lower.hasSuffix("h") { return num * 3600 }
+    }
+    return nil
+}
+
+public final class PromptCacheStore: @unchecked Sendable {
+    private var store: [String: CachedPromptState] = [:]
+    private let maxSlots: Int
+    private var accessOrder: [String] = []
+    private let lock = NSLock()
+
+    public init(maxSlots: Int = 4) {
+        self.maxSlots = maxSlots
+    }
+
+    public func get(key: String) -> CachedPromptState? {
+        lock.lock()
+        defer { lock.unlock() }
+        return store[key]
+    }
+
+    public func set(key: String, state: CachedPromptState) {
+        lock.lock()
+        defer { lock.unlock() }
+        if store[key] == nil && store.count >= maxSlots {
+            if let oldest = accessOrder.first {
+                store.removeValue(forKey: oldest)
+                accessOrder.removeFirst()
+            }
+        }
+        store[key] = state
+        accessOrder.removeAll { $0 == key }
+        accessOrder.append(key)
+    }
+
+    public func remove(key: String) {
+        lock.lock()
+        defer { lock.unlock() }
+        store.removeValue(forKey: key)
+        accessOrder.removeAll { $0 == key }
+    }
+
+    public func clear() {
+        lock.lock()
+        defer { lock.unlock() }
+        store.removeAll()
+        accessOrder.removeAll()
+    }
+}
+
+public final class ModelManager: @unchecked Sendable {
+    public let registry: ModelRegistry
+    public let store: ModelStore
+    private var loadedModels: [String: LoadedModel] = [:]
+    private let maxLoaded: Int
+    private let storageLock = NSLock()
+    public let promptCache: PromptCacheStore
+    public var inferenceEngine: (any InferenceEngineProtocol)?
+
+    public init(registry: ModelRegistry, store: ModelStore, maxLoadedModels: Int = 1,
+                inferenceEngine: (any InferenceEngineProtocol)? = nil) {
+        self.registry = registry
+        self.store = store
+        self.maxLoaded = maxLoadedModels
+        self.promptCache = PromptCacheStore(maxSlots: Settings.shared.promptCacheMaxSlots)
+        self.inferenceEngine = inferenceEngine
+    }
+
+    private func withLoadedModels<T>(_ body: (inout [String: LoadedModel]) throws -> T) rethrows -> T {
+        storageLock.lock()
+        defer { storageLock.unlock() }
+        return try body(&loadedModels)
+    }
+
+    public func ensureLoaded(name: String, keepAlive: String? = nil) async throws -> LoadedModel {
+        let normalized = ModelRegistry.normalizeName(name)
+
+        if let model = withLoadedModels({ $0[normalized] }) {
+            return model
+        }
+
+        guard let config = registry.resolve(name) else {
+            throw ModelLoadError.notFound(name)
+        }
+
+        let localPath = try await store.ensureDownloaded(hfPath: config.hfPath)
+        let caps = detectCaps(tokenizerChatTemplate: nil)
+
+        var model = LoadedModel(
+            name: name,
+            hfPath: config.hfPath,
+            templateCaps: caps,
+            config: config
+        )
+
+        if let engine = inferenceEngine {
+            do {
+                let container = try await engine.loadModel(from: localPath)
+                model.container = container
+            } catch {
+                throw ModelLoadError.inferenceError("Failed to load MLX model: \(error)")
+            }
+        }
+
+        let keepAliveStr = keepAlive ?? config.keepAlive ?? Settings.shared.defaultKeepAlive
+        if let duration = parseKeepAlive(keepAliveStr) {
+            model.expiresAt = duration > 0 ? Date().addingTimeInterval(duration) : nil
+        }
+
+        return withLoadedModels { models in
+            if models.count >= maxLoaded {
+                if let oldest = models.min(by: { $0.value.loadedAt < $1.value.loadedAt }) {
+                    models.removeValue(forKey: oldest.key)
+                }
+            }
+            models[normalized] = model
+            return model
+        }
+    }
+
+    public func getLoaded() -> [LoadedModel] {
+        return withLoadedModels { Array($0.values) }
+    }
+
+    public func unload(name: String) {
+        _ = withLoadedModels { models in
+            models.removeValue(forKey: ModelRegistry.normalizeName(name))
+        }
+    }
+
+    public func invalidatePromptCache(for model: String) {
+        promptCache.remove(key: ModelRegistry.normalizeName(model))
+    }
+
+    public func startExpiryChecker() -> Task<Void, Never> {
+        return Task { [weak self] in
+            while !Task.isCancelled {
+                guard let self else { break }
+                self.withLoadedModels { models in
+                    let now = Date()
+                    let expired = models.filter {
+                        if let exp = $0.value.expiresAt { return now >= exp }
+                        return false
+                    }
+                    for (name, _) in expired {
+                        models.removeValue(forKey: name)
+                    }
+                }
+                try? await Task.sleep(nanoseconds: 30_000_000_000)
+            }
+        }
+    }
+}
