@@ -18,8 +18,9 @@ olmlx [SUBCOMMAND] [OPTIONS]
 | `bench run` | Run a benchmark *(stub)* |
 | `bench list` | List benchmark results *(stub)* |
 | `config show` | Print the resolved configuration |
-| `service install` | Install a launchd LaunchAgent *(stub)* |
-| `service status` | Check launchd service status *(stub)* |
+| `service install` | Install a launchd LaunchAgent and bootstrap it |
+| `service status` | Check launchd service status |
+| `service uninstall` | Boot out the service and remove its plist |
 
 `--version` prints `0.1.0`. `--help` works at every level (e.g.
 `olmlx models --help`).
@@ -175,36 +176,40 @@ See [Configuration](configuration.md) for the full list of `OLMLX_*` variables.
 
 ---
 
-## `service install` / `service status` *(stubs)*
+## `service install`
 
-Print placeholders. Wiring up a real launchd LaunchAgent is left to the
-operator for now — drop a `.plist` into `~/Library/LaunchAgents/` that
-invokes `/usr/local/bin/olmlx serve` with whatever `OLMLX_*` environment you
-want. Example skeleton:
+Renders a LaunchAgent plist for the current `olmlx` binary, writes it to
+`~/Library/LaunchAgents/com.olmlx.plist`, and bootstraps it via
+`launchctl bootstrap gui/$UID …`. macOS only.
 
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
-  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>Label</key><string>com.olmlx</string>
-  <key>ProgramArguments</key>
-  <array>
-    <string>/usr/local/bin/olmlx</string>
-    <string>serve</string>
-  </array>
-  <key>EnvironmentVariables</key>
-  <dict>
-    <key>OLMLX_PORT</key><string>11434</string>
-    <key>OLMLX_MAX_LOADED_MODELS</key><string>2</string>
-  </dict>
-  <key>KeepAlive</key><true/>
-  <key>RunAtLoad</key><true/>
-  <key>StandardOutPath</key><string>/tmp/olmlx.out.log</string>
-  <key>StandardErrorPath</key><string>/tmp/olmlx.err.log</string>
-</dict>
-</plist>
+```
+olmlx service install [--executable PATH] [--host HOST] [--port PORT]
+                      [--env KEY=VALUE ...] [--log-dir DIR]
+                      [--keep-alive | --no-keep-alive]
+                      [--force] [--no-start]
 ```
 
-Load with `launchctl load ~/Library/LaunchAgents/com.olmlx.plist`.
+| Flag | Default | Description |
+| --- | --- | --- |
+| `--executable` | running binary | Path to the `olmlx` binary the agent should launch. Install your release binary somewhere stable (e.g. `/usr/local/bin/olmlx`) before running. |
+| `--host` | unset | Sets `OLMLX_HOST` in the agent's environment. |
+| `--port` | unset | Sets `OLMLX_PORT` in the agent's environment. Validated 1–65535. |
+| `--env KEY=VAL` | none | Repeatable. Adds an arbitrary environment variable. |
+| `--log-dir` | `~/.olmlx/logs` | Directory for `olmlx.out.log` / `olmlx.err.log`. |
+| `--keep-alive` / `--no-keep-alive` | `--keep-alive` | launchd `KeepAlive` flag. |
+| `--force` | off | Replace an existing plist; first boots out the running instance. |
+| `--no-start` | off | Write the plist but skip the `launchctl bootstrap` call. |
+
+The generated plist sets a sane `PATH`, `WorkingDirectory=$HOME`, and
+`RunAtLoad=true`. To inspect it: `cat ~/Library/LaunchAgents/com.olmlx.plist`.
+
+## `service status`
+
+Runs `launchctl print gui/$UID/com.olmlx` and surfaces the state, PID, and
+last exit code. When the plist exists on disk but isn't loaded, the command
+points you at `service install --force` to re-bootstrap.
+
+## `service uninstall`
+
+Boots the service out of launchd and removes the plist. Pass `--if-exists`
+to make the command idempotent (no error when nothing is installed).
