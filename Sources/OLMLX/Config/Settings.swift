@@ -26,8 +26,9 @@ public func validateKVCacheQuantFormat(_ value: String) -> String? {
     let validBits: Set<String> = ["2", "4"]
     let parts = value.split(separator: ":", maxSplits: 1).map(String.init)
     guard parts.count == 2,
-          validMethods.contains(parts[0]),
-          validBits.contains(parts[1]) else {
+        validMethods.contains(parts[0]),
+        validBits.contains(parts[1])
+    else {
         return nil
     }
     return value
@@ -53,7 +54,8 @@ public final class Settings: Codable, @unchecked Sendable {
     public var promptCacheMaxTokens: Int? = 32768
     public var promptCacheMaxSlots: Int = 4
     public var promptCacheDisk: Bool = false
-    public var promptCacheDiskPath: URL = URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent(".olmlx/cache/kv")
+    public var promptCacheDiskPath: URL = URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent(
+        ".olmlx/cache/kv")
     public var promptCacheDiskMaxGB: Double = 10.0
     public var inferenceQueueTimeout: Double? = 300.0
     public var inferenceTimeout: Double? = nil
@@ -144,7 +146,8 @@ public final class Settings: Codable, @unchecked Sendable {
 
         if let v = env["\(prefix)ANTHROPIC_MODELS"] {
             if let data = v.data(using: .utf8),
-               let decoded = try? JSONDecoder().decode([String: String].self, from: data) {
+                let decoded = try? JSONDecoder().decode([String: String].self, from: data)
+            {
                 anthropicModels = decoded.filter { key, _ in
                     !key.contains("-") && !key.contains(":")
                 }
@@ -182,7 +185,8 @@ public final class ExperimentalSettings: Codable, @unchecked Sendable {
     // Distributed
     public var distributed: Bool = false
     public var distributedStrategy: DistributedStrategy = .tensor
-    public var distributedHostfile: URL = URL(fileURLWithPath: NSString(string: "~/.olmlx/hostfile.json").expandingTildeInPath)
+    public var distributedHostfile: URL = URL(
+        fileURLWithPath: NSString(string: "~/.olmlx/hostfile.json").expandingTildeInPath)
     public var distributedBackend: String = "ring"
     public var distributedPort: Int = 32323
     public var distributedSidebandPort: Int = 32400

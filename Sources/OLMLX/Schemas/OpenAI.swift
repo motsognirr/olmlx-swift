@@ -99,10 +99,12 @@ public enum OpenAIStop: Codable, Sendable {
         } else if let a = try? container.decode([String].self) {
             self = .array(a)
         } else {
-            throw DecodingError.typeMismatch(OpenAIStop.self, DecodingError.Context(
-                codingPath: decoder.codingPath,
-                debugDescription: "Expected String or [String]"
-            ))
+            throw DecodingError.typeMismatch(
+                OpenAIStop.self,
+                DecodingError.Context(
+                    codingPath: decoder.codingPath,
+                    debugDescription: "Expected String or [String]"
+                ))
         }
     }
 
@@ -126,10 +128,12 @@ public enum ToolChoiceValue: Codable, Sendable {
         } else if let d = try? container.decode([String: AnyCodable].self) {
             self = .dictionary(d)
         } else {
-            throw DecodingError.typeMismatch(ToolChoiceValue.self, DecodingError.Context(
-                codingPath: decoder.codingPath,
-                debugDescription: "Expected String or object"
-            ))
+            throw DecodingError.typeMismatch(
+                ToolChoiceValue.self,
+                DecodingError.Context(
+                    codingPath: decoder.codingPath,
+                    debugDescription: "Expected String or object"
+                ))
         }
     }
 
@@ -208,10 +212,12 @@ public enum OpenAICompletionPrompt: Codable, Sendable {
         } else if let a = try? container.decode([String].self) {
             self = .array(a)
         } else {
-            throw DecodingError.typeMismatch(OpenAICompletionPrompt.self, DecodingError.Context(
-                codingPath: decoder.codingPath,
-                debugDescription: "Expected String or [String]"
-            ))
+            throw DecodingError.typeMismatch(
+                OpenAICompletionPrompt.self,
+                DecodingError.Context(
+                    codingPath: decoder.codingPath,
+                    debugDescription: "Expected String or [String]"
+                ))
         }
     }
 

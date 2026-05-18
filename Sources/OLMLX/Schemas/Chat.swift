@@ -21,8 +21,10 @@ public struct Message: Codable, Sendable {
         case toolCalls = "tool_calls"
     }
 
-    public init(role: String, content: String = "", thinking: String? = nil,
-                images: [String]? = nil, toolCalls: [ToolCall]? = nil) {
+    public init(
+        role: String, content: String = "", thinking: String? = nil,
+        images: [String]? = nil, toolCalls: [ToolCall]? = nil
+    ) {
         self.role = role
         self.content = content
         self.thinking = thinking
@@ -55,9 +57,11 @@ public struct ChatRequest: Codable, Sendable {
         case keepAlive = "keep_alive"
     }
 
-    public init(model: String, messages: [Message], tools: [Tool]? = nil,
-                format: String? = nil, stream: Bool = true,
-                options: ModelOptions? = nil, keepAlive: String? = nil) throws {
+    public init(
+        model: String, messages: [Message], tools: [Tool]? = nil,
+        format: String? = nil, stream: Bool = true,
+        options: ModelOptions? = nil, keepAlive: String? = nil
+    ) throws {
         guard !messages.isEmpty else {
             throw SchemaValidationError("messages cannot be empty")
         }

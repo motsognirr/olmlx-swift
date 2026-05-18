@@ -130,8 +130,8 @@ struct ToolsConversionTests {
                 "type": .string("object"),
                 "properties": .dictionary([
                     "city": .dictionary(["type": .string("string")])
-                ])
-            ])
+                ]),
+            ]),
         ]
         let tool = Tool(type: "function", function: function)
         let result = toolsToRaw([tool])

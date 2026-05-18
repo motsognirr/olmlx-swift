@@ -20,12 +20,14 @@ public struct GenerateRequest: Codable, Sendable {
         case keepAlive = "keep_alive"
     }
 
-    public init(model: String, prompt: String, suffix: String? = nil,
-                images: [String]? = nil, system: String? = nil,
-                template: String? = nil, context: [Int]? = nil,
-                stream: Bool = true, raw: Bool = false,
-                format: String? = nil, options: ModelOptions? = nil,
-                keepAlive: String? = nil) throws {
+    public init(
+        model: String, prompt: String, suffix: String? = nil,
+        images: [String]? = nil, system: String? = nil,
+        template: String? = nil, context: [Int]? = nil,
+        stream: Bool = true, raw: Bool = false,
+        format: String? = nil, options: ModelOptions? = nil,
+        keepAlive: String? = nil
+    ) throws {
         try validateNonEmptyTextInput(prompt, fieldName: "prompt")
         self.model = model
         self.prompt = prompt

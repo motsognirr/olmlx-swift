@@ -48,10 +48,12 @@ public enum AnthropicContentValue: Codable, Sendable {
         } else if let a = try? container.decode([AnyCodable].self) {
             self = .array(a)
         } else {
-            throw DecodingError.typeMismatch(AnthropicContentValue.self, DecodingError.Context(
-                codingPath: decoder.codingPath,
-                debugDescription: "Expected String or array"
-            ))
+            throw DecodingError.typeMismatch(
+                AnthropicContentValue.self,
+                DecodingError.Context(
+                    codingPath: decoder.codingPath,
+                    debugDescription: "Expected String or array"
+                ))
         }
     }
 
@@ -95,10 +97,12 @@ public enum AnthropicMessageContent: Codable, Sendable {
         } else if let b = try? container.decode([AnthropicContentBlock].self) {
             self = .blocks(b)
         } else {
-            throw DecodingError.typeMismatch(AnthropicMessageContent.self, DecodingError.Context(
-                codingPath: decoder.codingPath,
-                debugDescription: "Expected String or [ContentBlock]"
-            ))
+            throw DecodingError.typeMismatch(
+                AnthropicMessageContent.self,
+                DecodingError.Context(
+                    codingPath: decoder.codingPath,
+                    debugDescription: "Expected String or [ContentBlock]"
+                ))
         }
     }
 
@@ -175,10 +179,12 @@ public enum AnthropicSystemValue: Codable, Sendable {
         } else if let b = try? container.decode([AnthropicContentBlock].self) {
             self = .blocks(b)
         } else {
-            throw DecodingError.typeMismatch(AnthropicSystemValue.self, DecodingError.Context(
-                codingPath: decoder.codingPath,
-                debugDescription: "Expected String or [ContentBlock]"
-            ))
+            throw DecodingError.typeMismatch(
+                AnthropicSystemValue.self,
+                DecodingError.Context(
+                    codingPath: decoder.codingPath,
+                    debugDescription: "Expected String or [ContentBlock]"
+                ))
         }
     }
 

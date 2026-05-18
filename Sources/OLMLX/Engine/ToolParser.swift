@@ -86,9 +86,14 @@ public final class ToolParser: @unchecked Sendable {
     }
 
     public func resolveToolNames(_ toolUses: [ToolUse], declaredTools: [Tool]) -> [ToolUse] {
-        let toolLookup = Dictionary(uniqueKeysWithValues: declaredTools.map { ($0.function["name"].flatMap {
-            if case .string(let n) = $0 { return n } else { return nil }
-        } ?? "", $0) })
+        let toolLookup = Dictionary(
+            uniqueKeysWithValues: declaredTools.map {
+                (
+                    $0.function["name"].flatMap {
+                        if case .string(let n) = $0 { return n } else { return nil }
+                    } ?? "", $0
+                )
+            })
         return toolUses.map { use in
             let declared = toolLookup[use.name]
             return use
@@ -103,7 +108,8 @@ public final class ToolParser: @unchecked Sendable {
                 return false
             }) {
                 if case .dictionary(let params) = tool.function["parameters"] ?? .dictionary([:]),
-                   case .array(let required) = params["required"] ?? .array([]) {
+                    case .array(let required) = params["required"] ?? .array([])
+                {
                     for req in required {
                         if case .string(let key) = req, args[key] == nil {
                             args[key] = NSNull()
@@ -144,7 +150,8 @@ public final class ToolParser: @unchecked Sendable {
             let content = nsText.substring(with: match.range(at: 1))
             if let toolUse = parseToolCallJSON(content) {
                 let before = nsText.substring(to: match.range.location)
-                return ParseResult(visibleText: before.trimmingCharacters(in: .whitespacesAndNewlines), toolUses: [toolUse])
+                return ParseResult(
+                    visibleText: before.trimmingCharacters(in: .whitespacesAndNewlines), toolUses: [toolUse])
             }
         }
         return nil
@@ -176,10 +183,12 @@ public final class ToolParser: @unchecked Sendable {
         if let match = pattern?.firstMatch(in: text, range: NSRange(location: 0, length: nsText.length)) {
             let jsonStr = nsText.substring(with: match.range(at: 1))
             if let data = jsonStr.data(using: .utf8),
-               let calls = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
+                let calls = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]]
+            {
                 let toolUses = calls.compactMap { call -> ToolUse? in
                     guard let name = call["name"] as? String,
-                          let args = call["arguments"] as? [String: Any] else { return nil }
+                        let args = call["arguments"] as? [String: Any]
+                    else { return nil }
                     return ToolUse(id: generateToolUseID(), name: name, arguments: args)
                 }
                 if !toolUses.isEmpty {
@@ -200,8 +209,9 @@ public final class ToolParser: @unchecked Sendable {
         if let match = pattern?.firstMatch(in: text, range: NSRange(location: 0, length: nsText.length)) {
             let jsonStr = nsText.substring(with: match.range(at: 1))
             if let data = jsonStr.data(using: .utf8),
-               let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let name = dict["name"] as? String {
+                let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                let name = dict["name"] as? String
+            {
                 let args = dict["arguments"] as? [String: Any] ?? [:]
                 let toolUse = ToolUse(id: generateToolUseID(), name: name, arguments: args)
                 return ParseResult(toolUses: [toolUse])
@@ -220,10 +230,12 @@ public final class ToolParser: @unchecked Sendable {
         if let match = pattern?.firstMatch(in: text, range: NSRange(location: 0, length: nsText.length)) {
             let content = nsText.substring(with: match.range(at: 1))
             if let data = content.data(using: .utf8),
-               let calls = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
+                let calls = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]]
+            {
                 let toolUses = calls.compactMap { call -> ToolUse? in
                     guard let name = call["name"] as? String,
-                          let args = call["arguments"] as? [String: Any] else { return nil }
+                        let args = call["arguments"] as? [String: Any]
+                    else { return nil }
                     return ToolUse(id: generateToolUseID(), name: name, arguments: args)
                 }
                 if !toolUses.isEmpty {
@@ -261,7 +273,8 @@ public final class ToolParser: @unchecked Sendable {
             let argsStr = nsText.substring(with: match.range(at: 2)).trimmingCharacters(in: .whitespaces)
             var args: [String: Any] = [:]
             if let data = argsStr.data(using: .utf8),
-               let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+            {
                 args = dict
             }
             return ParseResult(toolUses: [ToolUse(id: generateToolUseID(), name: name, arguments: args)])
@@ -274,7 +287,8 @@ public final class ToolParser: @unchecked Sendable {
             return nil
         }
         let pattern = try? NSRegularExpression(
-            pattern: "\\{[^{}]*\"name\"\\s*:\\s*\"(\\w+)\"[^{}]*\"(?:arguments|parameters)\"\\s*:\\s*(\\{[^}]+\\})[^{}]*\\}",
+            pattern:
+                "\\{[^{}]*\"name\"\\s*:\\s*\"(\\w+)\"[^{}]*\"(?:arguments|parameters)\"\\s*:\\s*(\\{[^}]+\\})[^{}]*\\}",
             options: [.dotMatchesLineSeparators]
         )
         let nsText = text as NSString
@@ -283,7 +297,8 @@ public final class ToolParser: @unchecked Sendable {
             let argsStr = nsText.substring(with: match.range(at: 2))
             var args: [String: Any] = [:]
             if let data = argsStr.data(using: .utf8),
-               let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+            {
                 args = dict
             }
             return ParseResult(toolUses: [ToolUse(id: generateToolUseID(), name: name, arguments: args)])
@@ -299,8 +314,9 @@ public final class ToolParser: @unchecked Sendable {
 
     private func parseToolCallJSON(_ jsonStr: String) -> ToolUse? {
         guard let data = jsonStr.data(using: .utf8),
-              let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let name = dict["name"] as? String else { return nil }
+            let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let name = dict["name"] as? String
+        else { return nil }
         let args = dict["arguments"] as? [String: Any] ?? [:]
         return ToolUse(id: generateToolUseID(), name: name, arguments: args)
     }

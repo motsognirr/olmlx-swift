@@ -20,9 +20,10 @@ struct ModelManifestTests {
         let manifestPath = manifestDir.appendingPathComponent("manifest.json")
         defer { try? FileManager.default.removeItem(at: manifestDir) }
 
-        let m = ModelManifest(name: "llama2", hfPath: "meta-llama/Llama-2-7b",
-                              size: 1000, digest: "abc123", family: "llama",
-                              parameterSize: "7B", quantizationLevel: "Q4")
+        let m = ModelManifest(
+            name: "llama2", hfPath: "meta-llama/Llama-2-7b",
+            size: 1000, digest: "abc123", family: "llama",
+            parameterSize: "7B", quantizationLevel: "Q4")
         try m.save(to: manifestPath)
         let loaded = try ModelManifest.load(from: manifestPath)
         #expect(loaded.name == "llama2")
@@ -35,7 +36,7 @@ struct ModelManifestTests {
     @Test func computeDigest() {
         let digest = ModelManifest.computeDigest(name: "test-model")
         #expect(digest.hasPrefix("sha256:"))
-        #expect(digest.count == 19) // "sha256:" + 12 hex chars
+        #expect(digest.count == 19)  // "sha256:" + 12 hex chars
     }
 }
 
@@ -119,7 +120,7 @@ struct ModelStoreTests {
         let store = ModelStore(modelsDir: modelsDir, registry: registry)
 
         #expect(store.hasBlob(digest: "abc") == false)
-        try store.saveBlob(digest: "abc", data: "hello".data(using: .utf8)!)
+        try store.saveBlob(digest: "abc", data: Data("hello".utf8))
         #expect(store.hasBlob(digest: "abc") == true)
     }
 }
