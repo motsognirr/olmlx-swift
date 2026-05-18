@@ -230,6 +230,14 @@ private struct PreparedPrompt {
     let reusedFromCache: Bool
 }
 
+/// Bundled outcome of `runGeneration`'s perform block. Wrapped in a struct
+/// rather than a tuple so it sails past SwiftLint's `large_tuple` rule.
+private struct GenerationOutcome {
+    let text: String
+    let info: GenerateCompletionInfo?
+    let postEntry: PromptCacheEntry
+}
+
 private func prepareForGeneration(
     context: ModelContext,
     messages: [[String: any Sendable]],
@@ -333,8 +341,7 @@ public func runGeneration(
         cachedEntry = nil
     }
 
-    let outcome = try await container.perform {
-        context -> (String, GenerateCompletionInfo?, PromptCacheEntry) in
+    let outcome = try await container.perform { context -> GenerationOutcome in
         let prepared = try prepareForGeneration(
             context: context, messages: messages, tools: tools,
             parameters: parameters, cachedEntry: cachedEntry)
@@ -358,12 +365,14 @@ public func runGeneration(
 
         let postEntry = PromptCacheEntry(
             tokens: prepared.fullPromptTokens, caches: prepared.kvCaches)
-        return (fullText, completionInfo, postEntry)
+        return GenerationOutcome(text: fullText, info: completionInfo, postEntry: postEntry)
     }
 
-    let (text, info, postEntry) = outcome
-    await persistCache(context: cacheContext, entry: postEntry)
-    return (text, adjustInfo(info, fullPromptTokens: postEntry.tokens.count))
+    await persistCache(context: cacheContext, entry: outcome.postEntry)
+    return (
+        outcome.text,
+        adjustInfo(outcome.info, fullPromptTokens: outcome.postEntry.tokens.count)
+    )
 }
 
 /// Runs streaming generation via a ``ModelContainer``, calling back for each chunk.
