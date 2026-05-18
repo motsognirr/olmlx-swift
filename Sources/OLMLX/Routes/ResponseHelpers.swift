@@ -16,9 +16,11 @@ func fullChatResponse(
         message: Message(role: "assistant", content: text),
         done: true,
         doneReason: "stop",
-        totalDuration: info.map { Int($0.promptTime + $0.generateTime) * 1_000_000_000 },
+        totalDuration: info.map { Int(($0.promptTime + $0.generateTime) * 1_000_000_000) },
         promptEvalCount: info?.promptTokenCount,
-        evalCount: info?.generationTokenCount
+        promptEvalDuration: info.map { Int($0.promptTime * 1_000_000_000) },
+        evalCount: info?.generationTokenCount,
+        evalDuration: info.map { Int($0.generateTime * 1_000_000_000) }
     )
     let resp = Response(status: .ok)
     try resp.content.encode(msg, as: .json)
@@ -59,9 +61,11 @@ func streamingChatResponse(
                             message: Message(role: "assistant", content: ""),
                             done: true,
                             doneReason: "stop",
-                            totalDuration: info.map { Int($0.promptTime + $0.generateTime) * 1_000_000_000 },
+                            totalDuration: info.map { Int(($0.promptTime + $0.generateTime) * 1_000_000_000) },
                             promptEvalCount: info?.promptTokenCount,
-                            evalCount: info?.generationTokenCount
+                            promptEvalDuration: info.map { Int($0.promptTime * 1_000_000_000) },
+                            evalCount: info?.generationTokenCount,
+                            evalDuration: info.map { Int($0.generateTime * 1_000_000_000) }
                         )
                         if let data = try? encoder.encode(msg),
                             let json = String(data: data, encoding: .utf8)
