@@ -19,7 +19,7 @@ public struct RequestIDMiddleware: AsyncMiddleware {
 extension Application {
     func installDefaultMiddleware() {
         let corsConfig = CORSMiddleware.Configuration(
-            allowedOrigin: .custom(["http://localhost:*", "http://127.0.0.1:*"].joined(separator: ",")),
+            allowedOrigin: .originBased,
             allowedMethods: [.GET, .POST, .PUT, .OPTIONS, .DELETE, .PATCH, .HEAD],
             allowedHeaders: [.accept, .authorization, .contentType, .origin, .xRequestedWith, .userAgent]
         )
