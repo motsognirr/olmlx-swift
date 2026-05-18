@@ -148,8 +148,8 @@ but tight. Levers:
   more headroom.
 - **One model at a time.** `OLMLX_MAX_LOADED_MODELS=1` (the default) keeps
   only the newest model in RAM.
-- **Quantize the KV cache.** `OLMLX_KV_CACHE_QUANT=turboquant:4` or
-  `spectral:2` shrinks the per-token KV memory at some quality cost.
+- **Quantize the KV cache.** `OLMLX_KV_CACHE_QUANT=affine:4` (or `affine:2`)
+  shrinks the per-token KV memory at some quality cost.
 - **Lower the prompt-cache budget.** `OLMLX_PROMPT_CACHE_MAX_SLOTS=1`
   and/or `OLMLX_PROMPT_CACHE_MAX_TOKENS=8192`.
 

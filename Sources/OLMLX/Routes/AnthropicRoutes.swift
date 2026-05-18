@@ -23,6 +23,7 @@ extension Application {
             if let p = body.topP { params.topP = Float(p) }
             if let k = body.topK { params.topK = k }
             params.maxTokens = body.maxTokens
+            applyKVCacheQuant(&params, spec: model.config.resolvedKVCacheQuant(global: manager.settings))
 
             let rawMessages: [[String: any Sendable]] = body.messages.map { msg in
                 var dict: [String: any Sendable] = ["role": msg.role]

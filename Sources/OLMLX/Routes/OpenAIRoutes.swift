@@ -29,6 +29,7 @@ extension Application {
             if let t = body.temperature { params.temperature = Float(t) }
             if let p = body.topP { params.topP = Float(p) }
             if let m = body.maxTokens { params.maxTokens = m }
+            applyKVCacheQuant(&params, spec: model.config.resolvedKVCacheQuant(global: manager.settings))
 
             let rawMessages: [[String: any Sendable]] = body.messages.map { msg in
                 var dict: [String: any Sendable] = ["role": msg.role]

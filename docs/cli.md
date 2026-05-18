@@ -38,7 +38,7 @@ default subcommand, so `olmlx` and `olmlx serve` are equivalent.
 ```
 olmlx serve [--host HOST] [--port PORT]
             [--speculative]
-            [--kv-cache-quant turboquant:4 | spectral:4 | turboquant:2 | spectral:2]
+            [--kv-cache-quant affine:2 | affine:4 | affine:8]
 ```
 
 | Flag | Type | Default | Description |
@@ -46,7 +46,7 @@ olmlx serve [--host HOST] [--port PORT]
 | `--host` | string | `0.0.0.0` (or `OLMLX_HOST`) | Address to bind |
 | `--port` | int | `11434` (or `OLMLX_PORT`) | Port to listen on |
 | `--speculative` | flag | off | **Declared but not yet applied** — `Serve.run()` never reads this flag. Set `OLMLX_SPECULATIVE=true` instead. |
-| `--kv-cache-quant` | string | none | **Declared but not yet applied** — `Serve.run()` never reads this flag. Set `OLMLX_KV_CACHE_QUANT` instead. |
+| `--kv-cache-quant` | string | none | **Declared but not yet applied** — `Serve.run()` never reads this flag. Set `OLMLX_KV_CACHE_QUANT` (e.g. `affine:4`) instead. |
 
 Only `--host` and `--port` currently override the corresponding `OLMLX_*`
 environment variables. The other flags are parsed by ArgumentParser but
@@ -92,7 +92,7 @@ olmlx models show qwen3:8b
 # Model: qwen3:8b
 # HF Path: mlx-community/Qwen3-8B-4bit
 # Draft: mlx-community/Qwen3-0.5B-4bit            # if speculative_draft_model set
-# KV Cache Quant: turboquant:4                    # if configured
+# KV Cache Quant: affine:4                        # if configured
 # Size: 5147483648 bytes                          # only if manifest.json exists
 # Family: qwen2
 # Parameters: 8B

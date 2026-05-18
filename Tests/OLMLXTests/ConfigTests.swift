@@ -52,14 +52,33 @@ struct ConfigTests {
     }
 
     @Test func kvCacheQuantValid() {
-        let s = Settings(env: ["OLMLX_KV_CACHE_QUANT": "turboquant:4"])
-        #expect(s.kvCacheQuant == "turboquant:4")
+        #expect(Settings(env: ["OLMLX_KV_CACHE_QUANT": "affine:2"]).kvCacheQuant == "affine:2")
+        #expect(Settings(env: ["OLMLX_KV_CACHE_QUANT": "affine:4"]).kvCacheQuant == "affine:4")
+        #expect(Settings(env: ["OLMLX_KV_CACHE_QUANT": "affine:8"]).kvCacheQuant == "affine:8")
     }
 
     @Test func kvCacheQuantInvalid() {
+        // MLX-swift only implements affine KV cache quantization, so turboquant/spectral
+        // (supported by the Python reference) are rejected here rather than silently
+        // accepted and ignored at inference time.
+        #expect(Settings(env: ["OLMLX_KV_CACHE_QUANT": "turboquant:4"]).kvCacheQuant == nil)
+        #expect(Settings(env: ["OLMLX_KV_CACHE_QUANT": "spectral:4"]).kvCacheQuant == nil)
         #expect(Settings(env: ["OLMLX_KV_CACHE_QUANT": "bogus:4"]).kvCacheQuant == nil)
-        #expect(Settings(env: ["OLMLX_KV_CACHE_QUANT": "turboquant:8"]).kvCacheQuant == nil)
-        #expect(Settings(env: ["OLMLX_KV_CACHE_QUANT": "turboquant"]).kvCacheQuant == nil)
+        #expect(Settings(env: ["OLMLX_KV_CACHE_QUANT": "affine:3"]).kvCacheQuant == nil)
+        #expect(Settings(env: ["OLMLX_KV_CACHE_QUANT": "affine"]).kvCacheQuant == nil)
+    }
+
+    @Test func parseKVCacheQuantParses() {
+        let result = parseKVCacheQuant("affine:4")
+        #expect(result?.kind == "affine")
+        #expect(result?.bits == 4)
+    }
+
+    @Test func parseKVCacheQuantRejectsUnknownKind() {
+        #expect(parseKVCacheQuant("turboquant:4") == nil)
+        #expect(parseKVCacheQuant("affine:5") == nil)
+        #expect(parseKVCacheQuant("affine") == nil)
+        #expect(parseKVCacheQuant("") == nil)
     }
 
     @Test func speculativeDefaults() {

@@ -40,7 +40,7 @@ The decoder accepts three value shapes for backwards compatibility:
   "qwen3:8b": {
     "hf_path": "mlx-community/Qwen3-8B-4bit",
     "keep_alive": "10m",
-    "kv_cache_quant": "turboquant:4"
+    "kv_cache_quant": "affine:4"
   },
 
   // 3. Full form with speculative decoding overrides
@@ -51,7 +51,7 @@ The decoder accepts three value shapes for backwards compatibility:
     "speculative_draft_model": "mlx-community/Meta-Llama-3-8B-Instruct-4bit",
     "speculative_tokens": 4,
     "speculative_strategy": "classic",
-    "kv_cache_quant": "spectral:4",
+    "kv_cache_quant": "affine:4",
     "sync_mode": "full",
     "options": {
       "temperature": 0.7,
@@ -79,7 +79,7 @@ Lookups normalize names by appending `:latest` when no tag is present, so
 | `speculative_draft_model` | string | HF path of the draft model |
 | `speculative_tokens` | int | Lookahead window |
 | `speculative_strategy` | enum | `classic` \| `dflash` \| `eagle` |
-| `kv_cache_quant` | string | `turboquant:2`/`turboquant:4`/`spectral:2`/`spectral:4` |
+| `kv_cache_quant` | string | `affine:2`/`affine:4`/`affine:8` (MLX-swift only implements affine quantization) |
 | `experimental` | object | Free-form pass-through bag, not currently consumed |
 
 Per-model values override the global `OLMLX_*` defaults.

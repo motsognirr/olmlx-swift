@@ -64,7 +64,8 @@ extension Application {
                 return chatFallbackResponse(model: body.model, stream: body.stream, from: model)
             }
 
-            let params = mapToGenerateParameters(from: body.options)
+            var params = mapToGenerateParameters(from: body.options)
+            applyKVCacheQuant(&params, spec: model.config.resolvedKVCacheQuant(global: manager.settings))
             let rawMessages = messagesToRaw(body.messages)
             let rawTools = toolsToRaw(body.tools)
 
@@ -87,7 +88,8 @@ extension Application {
                 return generateFallbackResponse(model: body.model, stream: body.stream, from: model)
             }
 
-            let params = mapToGenerateParameters(from: body.options)
+            var params = mapToGenerateParameters(from: body.options)
+            applyKVCacheQuant(&params, spec: model.config.resolvedKVCacheQuant(global: manager.settings))
             let rawMessages: [[String: any Sendable]] = [
                 ["role": "user", "content": body.prompt]
             ]

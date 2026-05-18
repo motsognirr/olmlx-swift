@@ -84,14 +84,18 @@ to the `qwen3:8b` local entry. For now, use the registry alias directly.
 
 Format is `method:bits`:
 
-- `method` ∈ {`turboquant`, `spectral`}
-- `bits` ∈ {`2`, `4`}
+- `method` must be `affine` (MLX-swift currently only implements affine KV
+  cache quantization; the Python reference's `turboquant` and `spectral`
+  modes are not yet supported here and are rejected at startup)
+- `bits` ∈ {`2`, `4`, `8`}
 
-Examples: `turboquant:4`, `spectral:2`. Invalid values are silently ignored
-(the validator returns `nil`, the variable becomes `none`).
+Examples: `affine:4`, `affine:8`. Invalid values are rejected with a warning
+written to stderr and the variable becomes `none`.
 
 The global value is applied to all models that do not set their own
-`kv_cache_quant` in `models.json`.
+`kv_cache_quant` in `models.json`. When set, MLX converts per-layer caches
+to ``QuantizedKVCache`` after the prefill threshold, reducing per-token KV
+memory at some quality cost.
 
 ## Speculative decoding
 

@@ -95,7 +95,7 @@ public actor PromptCacheStore {
 public actor ModelManager {
     public let registry: ModelRegistry
     public let store: ModelStore
-    public let settings: Settings
+    public nonisolated let settings: Settings
     private var loadedModels: [String: LoadedModel] = [:]
     private let maxLoaded: Int
     public let promptCache: PromptCacheStore
