@@ -249,26 +249,4 @@ struct ConfigShow: ParsableCommand {
     }
 }
 
-struct Service: ParsableCommand {
-    static let configuration = CommandConfiguration(
-        abstract: "Launchd service management",
-        subcommands: [ServiceInstall.self, ServiceStatus.self]
-    )
-}
-
-struct ServiceInstall: ParsableCommand {
-    static let configuration = CommandConfiguration(abstract: "Install as a launchd service")
-
-    mutating func run() throws {
-        print("Service installation not implemented yet")
-        print("On macOS, add to ~/Library/LaunchAgents/com.olmlx.plist")
-    }
-}
-
-struct ServiceStatus: ParsableCommand {
-    static let configuration = CommandConfiguration(abstract: "Check service status")
-
-    mutating func run() throws {
-        print("Checking service status...")
-    }
-}
+// `Service` and its subcommands live in Service.swift.
