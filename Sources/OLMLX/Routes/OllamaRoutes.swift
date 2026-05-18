@@ -108,8 +108,29 @@ extension Application {
         on(.POST, "api", "embeddings") { _ async throws -> Response in
             throw Abort(.notImplemented, reason: "embedding endpoints are not implemented")
         }
-        on(.POST, "api", "pull") { _ async throws -> Response in
-            throw Abort(.notImplemented, reason: "model pull is not implemented; pre-load models manually")
+        on(.POST, "api", "pull") { req async throws -> PullResponse in
+            let body = try req.content.decode(PullRequest.self)
+            let registry = req.application.storage[ModelRegistryKey.self]!
+            let store = req.application.storage[ModelStoreKey.self]!
+
+            let hfPath: String
+            if let config = await registry.resolve(body.model) {
+                hfPath = config.hfPath
+            } else {
+                hfPath = body.model
+            }
+
+            do {
+                _ = try await store.ensureDownloaded(hfPath: hfPath)
+            } catch let ModelStoreError.invalidHFPath(path) {
+                throw Abort(.badRequest, reason: "invalid HuggingFace path: \(path)")
+            } catch let ModelStoreError.downloadFailed(path, underlying) {
+                throw Abort(
+                    .internalServerError,
+                    reason: "failed to download \(path): \(underlying)"
+                )
+            }
+            return PullResponse(status: "success", digest: nil, total: nil, completed: nil)
         }
         on(.POST, "api", "copy") { _ async throws -> Response in
             throw Abort(.notImplemented, reason: "model copy is not implemented")
