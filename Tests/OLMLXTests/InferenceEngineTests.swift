@@ -60,10 +60,12 @@ struct GenerateParametersMappingTests {
         #expect(mapToGenerateParameters(from: opts).minP == 0.1)
     }
 
-    @Test func typicalP() {
+    @Test func typicalPIsIgnored() {
         var opts = ModelOptions()
         opts.typicalP = 0.8
-        #expect(mapToGenerateParameters(from: opts).topP == 0.8)
+        opts.topP = 0.5
+        // typical_p is unsupported by MLX's sampler and must not overwrite topP.
+        #expect(mapToGenerateParameters(from: opts).topP == 0.5)
     }
 
     @Test func emptyOptions() {
