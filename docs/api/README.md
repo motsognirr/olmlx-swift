@@ -22,16 +22,31 @@ client expects.
 
 ## CORS
 
-`CORSMiddleware` is mounted by default. The default allowed origins are
-`http://localhost:*` and `http://127.0.0.1:*`. Override with
-`OLMLX_CORS_ORIGINS` (comma-separated list). Allowed methods:
+`CORSMiddleware` is mounted by default with `allowedOrigin: .originBased` —
+the response echoes back whatever `Origin` header the client sent, so any
+browser context can talk to the server. Allowed methods:
 `GET, POST, PUT, OPTIONS, DELETE, PATCH, HEAD`.
+
+> `OLMLX_CORS_ORIGINS` is currently **parsed but not applied** — the
+> middleware does not read `Settings.corsOrigins`. Restricting origins
+> requires fronting `olmlx` with a reverse proxy until this is wired up.
 
 ## Authentication
 
-There is none. `olmlx` is intended to run on `localhost` or inside a trusted
-network. If you need auth, put it in front of `olmlx` (e.g. an nginx reverse
-proxy with HTTP Basic auth, or a Tailscale ACL).
+There is none. `olmlx` has no auth layer at all. If you need auth, put it
+in front of `olmlx` (e.g. an nginx reverse proxy with HTTP Basic auth, or
+a Tailscale ACL).
+
+> **Security warning:** the default bind address is `0.0.0.0` — the server
+> is reachable from every host that can route to the machine (LAN peers,
+> VPN members, and the public internet if the port is forwarded). CORS
+> restrictions are browser-only and do not protect against `curl` or any
+> non-browser client.
+>
+> On a shared or network-accessible machine, set `OLMLX_HOST=127.0.0.1`
+> (or `--host 127.0.0.1`) so the server only listens on the loopback
+> interface, and front it with a proxy that enforces auth if remote access
+> is needed.
 
 ## Error shape
 

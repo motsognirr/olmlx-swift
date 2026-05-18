@@ -14,7 +14,7 @@ silently rather than erroring out at boot.
 | `OLMLX_HOST` | `0.0.0.0` | Address to bind the HTTP server to |
 | `OLMLX_PORT` | `11434` | TCP port (1–65535) |
 | `OLMLX_LOG_LEVEL` | `INFO` | Logging level (`DEBUG`, `INFO`, `WARN`, `ERROR`) |
-| `OLMLX_CORS_ORIGINS` | `http://localhost:*,http://127.0.0.1:*` | Comma-separated origins for the CORS middleware |
+| `OLMLX_CORS_ORIGINS` | `http://localhost:*,http://127.0.0.1:*` | **Parsed but not applied today** — the CORS middleware is hard-wired to `allowedOrigin: .originBased`, which echoes whatever `Origin` the client sent. Setting this variable has no effect at runtime. |
 
 ## Storage
 
@@ -31,7 +31,7 @@ Tilde paths (`~/...`) are expanded against `$HOME`.
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `OLMLX_DEFAULT_KEEP_ALIVE` | `5m` | How long a model stays in memory after the last request. Accepts `Ns` / `Nm` / `Nh` (e.g. `30s`, `2h`). `0` evicts immediately. |
+| `OLMLX_DEFAULT_KEEP_ALIVE` | `5m` | How long a model stays in memory after the last request. Accepts `Ns` / `Nm` / `Nh` (e.g. `30s`, `2h`). `0` pins the model in memory indefinitely (only LRU eviction at `OLMLX_MAX_LOADED_MODELS` capacity can remove it). |
 | `OLMLX_MAX_LOADED_MODELS` | `1` | Concurrent in-memory models; oldest is evicted on overflow |
 | `OLMLX_MEMORY_LIMIT_FRACTION` | `0.75` | Fraction of system memory MLX is allowed to use (0 < f ≤ 1) |
 | `OLMLX_MODEL_LOAD_TIMEOUT` | none | Optional seconds; nothing enforces this today |
@@ -60,22 +60,21 @@ that a follow-up request that shares a prefix can skip prompt evaluation.
 ## Anthropic-API model aliasing
 
 The Anthropic surface accepts whatever model name is configured in the
-registry, but you can also publish "stable" Claude-style names that map to
-local aliases.
+registry. There is a planned mechanism for publishing "stable" Claude-style
+names that map to local aliases, but it is **not yet wired up**.
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `OLMLX_ANTHROPIC_MODELS` | `{}` | JSON map of `<short_name>` → `<local_alias>`. Keys may not contain `-` or `:`. |
+| `OLMLX_ANTHROPIC_MODELS` | `{}` | **Parsed but not applied today.** JSON map of `<short_name>` → `<local_alias>`. Keys may not contain `-` or `:`. The Anthropic route handler does not consult this map — every request must use a name that resolves against the registry directly. |
 
-Example:
+Example of the intended (future) shape:
 
 ```sh
 export OLMLX_ANTHROPIC_MODELS='{"haiku":"qwen3:8b","sonnet":"llama3:8b"}'
 ```
 
-Then `POST /v1/messages` with `"model":"haiku"` resolves to the `qwen3:8b`
-local entry. The empty/default map disables remapping (requests must use the
-exact alias).
+Once implemented, `POST /v1/messages` with `"model":"haiku"` would resolve
+to the `qwen3:8b` local entry. For now, use the registry alias directly.
 
 ## KV-cache quantization
 

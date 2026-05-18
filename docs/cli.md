@@ -44,11 +44,12 @@ olmlx serve [--host HOST] [--port PORT]
 | --- | --- | --- | --- |
 | `--host` | string | `0.0.0.0` (or `OLMLX_HOST`) | Address to bind |
 | `--port` | int | `11434` (or `OLMLX_PORT`) | Port to listen on |
-| `--speculative` | flag | off | Enable speculative decoding (requires a draft model — see [Configuration](configuration.md)) |
-| `--kv-cache-quant` | string | none | KV-cache quantization in `method:bits` form (`turboquant`/`spectral` × `2`/`4`) |
+| `--speculative` | flag | off | **Declared but not yet applied** — `Serve.run()` never reads this flag. Set `OLMLX_SPECULATIVE=true` instead. |
+| `--kv-cache-quant` | string | none | **Declared but not yet applied** — `Serve.run()` never reads this flag. Set `OLMLX_KV_CACHE_QUANT` instead. |
 
-CLI flags override the corresponding `OLMLX_*` environment variables for that
-process only.
+Only `--host` and `--port` currently override the corresponding `OLMLX_*`
+environment variables. The other flags are parsed by ArgumentParser but
+ignored by the run loop until the dispatch is wired up.
 
 ### Behavior
 

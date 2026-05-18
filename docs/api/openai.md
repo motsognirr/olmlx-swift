@@ -34,11 +34,11 @@ Auth headers are accepted and ignored — `olmlx` has no auth.
   "max_completion_tokens": 512,                 // accepted, not separately used
   "n": 1,                                       // accepted; only n=1 is supported
   "stream": false,                              // see streaming note below
-  "stop": "###" | ["###", "STOP"],              // accepted, no MLX hookup yet
+  "stop": "###",                                // string or array of strings; no MLX hookup yet
   "presence_penalty": 0.0,                      // accepted
   "frequency_penalty": 0.0,                     // accepted
   "tools": [...],                               // accepted, decoded; routing TBD
-  "tool_choice": "auto" | { "type": "...", ... },
+  "tool_choice": "auto",                        // also accepts a function-specifier object
   "seed": 42,                                   // accepted
   "response_format": { "type": "json_schema", "json_schema": { ... } }
 }

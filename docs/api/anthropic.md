@@ -83,19 +83,21 @@ client-side.
 
 ---
 
-## Anthropic-style model aliasing
+## Anthropic-style model aliasing *(not yet implemented)*
 
-You can publish "Anthropic-shaped" model names without touching the registry
-by setting `OLMLX_ANTHROPIC_MODELS`:
+`OLMLX_ANTHROPIC_MODELS` is the planned hook for publishing "Anthropic-
+shaped" model names without touching the registry:
 
 ```sh
 export OLMLX_ANTHROPIC_MODELS='{"haiku":"qwen3:8b","sonnet":"llama3:8b"}'
 ```
 
-Then a request with `"model":"haiku"` is mapped to the local alias
-`qwen3:8b`. Aliases may not contain `-` or `:` (the filter strips those
-keys silently on parse) — keep them short and simple. The default value is
-an empty map; the model field must be a registry alias.
+The intent is for a request with `"model":"haiku"` to be remapped to the
+local alias `qwen3:8b`. **Today this lookup is not performed** — the route
+handler passes `body.model` straight to `ModelManager.ensureLoaded`, which
+fails with "model not found" unless the name already exists in the
+registry. The env var is parsed into `Settings.anthropicModels` but no
+caller consults it. Use the registry alias directly until this is wired up.
 
 ---
 

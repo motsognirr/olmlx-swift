@@ -72,7 +72,7 @@ Lookups normalize names by appending `:latest` when no tag is present, so
 | Field | Type | Notes |
 | --- | --- | --- |
 | `hf_path` | string | **Required.** Must be `namespace/name` |
-| `keep_alive` | string | Same format as `OLMLX_DEFAULT_KEEP_ALIVE` (`30s`, `5m`, `2h`, `0`) |
+| `keep_alive` | string | Same format as `OLMLX_DEFAULT_KEEP_ALIVE` (`30s`, `5m`, `2h`). `0` pins the model indefinitely (only LRU eviction can remove it). |
 | `options` | object | Default `ModelOptions` for this model (see [Common schemas](api/ollama.md#options)) |
 | `sync_mode` | enum | `full` \| `minimal` \| `none` |
 | `speculative` | bool | Enable speculative decoding for this model |

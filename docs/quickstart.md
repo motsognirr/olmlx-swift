@@ -128,8 +128,10 @@ curl -s http://localhost:11434/v1/messages \
 - **Embeddings and `create`/`copy`/`abort` are not implemented.** Calls return
   `501 Not Implemented`. See the [API reference](api/README.md) for the full
   status of each endpoint.
-- **CORS is permissive for `http://localhost:*` and `http://127.0.0.1:*`**
-  by default. Override with `OLMLX_CORS_ORIGINS`.
+- **CORS is permissive for any origin.** The middleware is mounted with
+  `allowedOrigin: .originBased`, which echoes back whatever `Origin` the
+  client sent. `OLMLX_CORS_ORIGINS` is parsed but not yet applied — use a
+  reverse proxy if you need to restrict origins.
 
 You're up. Continue with the [CLI Reference](cli.md), the
 [Configuration](configuration.md) page, or jump straight to the

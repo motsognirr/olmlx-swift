@@ -157,18 +157,22 @@ but tight. Levers:
 
 ## CORS error from a browser app
 
-Default allowed origins are `http://localhost:*` and `http://127.0.0.1:*`.
-A page served from another host or scheme (e.g. an https:// production URL)
-will be blocked.
+The middleware is mounted with `allowedOrigin: .originBased`, which echoes
+any `Origin` header the browser sends — so CORS *itself* should not be the
+cause of a blocked request. If you're still hitting a CORS error, check:
 
-Override:
+- The preflight `OPTIONS` request is reaching the server (look in the server
+  log for the request ID).
+- The browser is sending an `Origin` header at all — `file://` URLs and some
+  privacy modes don't.
+- You're not seeing a *non-CORS* network error (e.g. the server isn't
+  bound on the address the browser is hitting) masquerading as one in the
+  devtools panel.
 
-```sh
-OLMLX_CORS_ORIGINS="https://myapp.example.com,http://localhost:*" olmlx serve
-```
-
-The middleware uses Vapor's `CORSMiddleware` with `allowedOrigin: .originBased`,
-which echoes the request's Origin header when it matches the list.
+> `OLMLX_CORS_ORIGINS` is parsed at startup but **not currently applied** —
+> the middleware ignores `Settings.corsOrigins`. To restrict origins today,
+> front `olmlx` with a reverse proxy that strips/rewrites the `Origin`
+> header.
 
 ---
 
