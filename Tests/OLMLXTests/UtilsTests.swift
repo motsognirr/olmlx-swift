@@ -1,98 +1,98 @@
 import Foundation
-import OLMLX
-import OLMLXTestUtils
+import Testing
 
-func OLMLXTests_timingStatsDefaults() throws {
-    let stats = TimingStats()
-    try expectEqual(stats.totalDuration, 0)
-    try expectEqual(stats.loadDuration, 0)
-    try expectEqual(stats.promptEvalCount, 0)
-    try expectEqual(stats.promptEvalDuration, 0)
-    try expectEqual(stats.evalCount, 0)
-    try expectEqual(stats.evalDuration, 0)
-}
+@testable import OLMLX
 
-func OLMLXTests_timingStatsToDict() throws {
-    let stats = TimingStats(totalDuration: 100, loadDuration: 10,
-                            promptEvalCount: 5, promptEvalDuration: 20,
-                            evalCount: 50, evalDuration: 70)
-    let dict = stats.toDict()
-    try expectEqual(dict["total_duration"], 100)
-    try expectEqual(dict["load_duration"], 10)
-    try expectEqual(dict["prompt_eval_count"], 5)
-    try expectEqual(dict["eval_count"], 50)
-}
-
-func OLMLXTests_timerMeasuresDuration() throws {
-    let (_, duration) = Timer.measure {
-        Thread.sleep(forTimeInterval: 0.01)
+@Suite("Utils")
+struct UtilsTests {
+    @Test func timingStatsDefaults() {
+        let stats = TimingStats()
+        #expect(stats.totalDuration == 0)
+        #expect(stats.loadDuration == 0)
+        #expect(stats.promptEvalCount == 0)
+        #expect(stats.promptEvalDuration == 0)
+        #expect(stats.evalCount == 0)
+        #expect(stats.evalDuration == 0)
     }
-    try expect(duration >= 10_000_000, "should be at least 10ms in ns")
-}
 
-func OLMLXTests_timerInitialValues() throws {
-    let t = Timer()
-    try expectEqual(t.durationNs, 0)
-}
+    @Test func timingStatsToDict() {
+        let stats = TimingStats(totalDuration: 100, loadDuration: 10,
+                                promptEvalCount: 5, promptEvalDuration: 20,
+                                evalCount: 50, evalDuration: 70)
+        let dict = stats.toDict()
+        #expect(dict["total_duration"] == 100)
+        #expect(dict["load_duration"] == 10)
+        #expect(dict["prompt_eval_count"] == 5)
+        #expect(dict["eval_count"] == 50)
+    }
 
-func OLMLXTests_streamTokenDefaults() throws {
-    let tok = StreamToken(text: "hi", promptTokens: 5, generationTokens: 1,
-                          promptTps: 100.0, generationTps: 50.0)
-    try expectEqual(tok.text, "hi")
-    try expectNil(tok.token)
-    try expectNil(tok.finishReason)
-}
+    @Test func timerMeasuresDuration() {
+        let (_, duration) = Timer.measure {
+            Thread.sleep(forTimeInterval: 0.01)
+        }
+        #expect(duration >= 10_000_000)
+    }
 
-func OLMLXTests_streamTokenWithFinishReason() throws {
-    let tok = StreamToken(text: "", token: nil, promptTokens: 5, generationTokens: 10,
-                          promptTps: 100.0, generationTps: 50.0, finishReason: "stop")
-    try expectEqual(tok.finishReason, "stop")
-}
+    @Test func timerInitialValues() {
+        let t = Timer()
+        #expect(t.durationNs == 0)
+    }
 
-func OLMLXTests_stripThinkingDetectPhase() throws {
-    var state = ThinkingStripState()
-    _ = stripThinkingStreaming(text: "hello world", state: &state)
-    try expectEqual(state.phase, "detect")
-    // Buffer grows in detect phase, nothing emitted until limit
-}
+    @Test func streamTokenDefaults() {
+        let tok = StreamToken(text: "hi", promptTokens: 5, generationTokens: 1,
+                              promptTps: 100.0, generationTps: 50.0)
+        #expect(tok.text == "hi")
+        #expect(tok.token == nil)
+        #expect(tok.finishReason == nil)
+    }
 
-func OLMLXTests_stripThinkingInPassthrough() throws {
-    var state = ThinkingStripState()
-    // Push enough data to exceed detect limit and transition to passthrough
-    let bigText = String(repeating: "a", count: 250)
-    let result = stripThinkingStreaming(text: bigText, state: &state)
-    try expectEqual(state.phase, "passthrough")
-    try expect(result.count > 0, "should emit content in passthrough")
-}
+    @Test func streamTokenWithFinishReason() {
+        let tok = StreamToken(text: "", token: nil, promptTokens: 5, generationTokens: 10,
+                              promptTps: 100.0, generationTps: 50.0, finishReason: "stop")
+        #expect(tok.finishReason == "stop")
+    }
 
-func OLMLXTests_stripThinkingStripsThinkTags() throws {
-    var state = ThinkingStripState(thinkingExpected: true)
-    let result = stripThinkingStreaming(text: "<think>reasoning here</think>hello", state: &state)
-    try expectEqual(result, "hello")
-}
+    @Test func stripThinkingDetectPhase() {
+        var state = ThinkingStripState()
+        _ = stripThinkingStreaming(text: "hello world", state: &state)
+        #expect(state.phase == "detect")
+    }
 
-func OLMLXTests_stripThinkingKeepsContentAfterClose() throws {
-    var state = ThinkingStripState(thinkingExpected: true)
-    var result = stripThinkingStreaming(text: "</think>visible text", state: &state)
-    result += stripThinkingStreaming(text: " more", state: &state)
-    try expect(result.hasPrefix("visible text"), "should keep text after orphan close")
-}
+    @Test func stripThinkingInPassthrough() {
+        var state = ThinkingStripState()
+        let bigText = String(repeating: "a", count: 250)
+        let result = stripThinkingStreaming(text: bigText, state: &state)
+        #expect(state.phase == "passthrough")
+        #expect(result.count > 0)
+    }
 
-func OLMLXTests_flushThinkingBuffer() throws {
-    var state = ThinkingStripState()
-    _ = stripThinkingStreaming(text: "visible", state: &state)
-    let flushed = flushThinkingBuffer(state: &state)
-    try expectEqual(flushed, "visible")
-    try expectEqual(state.buffer, "")
-    try expectEqual(state.phase, "detect")
-}
+    @Test func stripThinkingStripsThinkTags() {
+        var state = ThinkingStripState(thinkingExpected: true)
+        let result = stripThinkingStreaming(text: "<think>reasoning here</think>hello", state: &state)
+        #expect(result == "hello")
+    }
 
-func OLMLXTests_systemMemory() throws {
-    let mem = getSystemMemoryBytes()
-    try expect(mem > 0, "system memory should be positive")
-}
+    @Test func stripThinkingKeepsContentAfterClose() {
+        var state = ThinkingStripState(thinkingExpected: true)
+        var result = stripThinkingStreaming(text: "</think>visible text", state: &state)
+        result += stripThinkingStreaming(text: " more", state: &state)
+        #expect(result.hasPrefix("visible text"))
+    }
 
-func OLMLXTests_memoryPressureNotHigh() throws {
-    let result = isMemoryPressureHigh(limitFraction: 1.0)
-    try expectEqual(result, false, "should not be high with 100% limit")
+    @Test func flushThinking() {
+        var state = ThinkingStripState()
+        _ = stripThinkingStreaming(text: "visible", state: &state)
+        let flushed = flushThinkingBuffer(state: &state)
+        #expect(flushed == "visible")
+        #expect(state.buffer == "")
+        #expect(state.phase == "detect")
+    }
+
+    @Test func systemMemoryPositive() {
+        #expect(getSystemMemoryBytes() > 0)
+    }
+
+    @Test func memoryPressureNotHigh() {
+        #expect(isMemoryPressureHigh(limitFraction: 1.0) == false)
+    }
 }

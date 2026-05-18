@@ -32,17 +32,9 @@ let package = Package(
                 .product(name: "Vapor", package: "vapor"),
             ]
         ),
-        .target(
-            name: "OLMLXTestUtils",
-            dependencies: [],
-            path: "Tests/TestUtils"
-        ),
-        .executableTarget(
+        .testTarget(
             name: "OLMLXTests",
-            dependencies: [
-                "OLMLX",
-                "OLMLXTestUtils",
-            ],
+            dependencies: ["OLMLX"],
             path: "Tests/OLMLXTests"
         ),
         .executableTarget(
