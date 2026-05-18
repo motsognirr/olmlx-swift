@@ -272,4 +272,3 @@ struct ServiceStatus: ParsableCommand {
         print("Checking service status...")
     }
 }
-
