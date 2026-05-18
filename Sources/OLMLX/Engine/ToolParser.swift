@@ -1,14 +1,22 @@
 import Foundation
 
-public struct ToolUse: @unchecked Sendable {
+public struct ToolUse: Sendable {
     public var id: String
     public var name: String
-    public var arguments: [String: Any]
+    public var arguments: [String: AnyCodable]
 
-    public init(id: String, name: String, arguments: [String: Any]) {
+    public init(id: String, name: String, arguments: [String: AnyCodable]) {
         self.id = id
         self.name = name
         self.arguments = arguments
+    }
+
+    /// Convenience initializer for callers holding `[String: Any]` from
+    /// `JSONSerialization`.
+    public init(id: String, name: String, jsonArguments: [String: Any]) {
+        self.id = id
+        self.name = name
+        self.arguments = jsonArguments.mapValues(AnyCodable.from)
     }
 }
 
@@ -24,7 +32,7 @@ public struct ParseResult: Sendable {
     }
 }
 
-public final class ToolParser: @unchecked Sendable {
+public final class ToolParser: Sendable {
 
     public static let shared = ToolParser()
 
@@ -94,10 +102,10 @@ public final class ToolParser: @unchecked Sendable {
                     } ?? "", $0
                 )
             })
-        return toolUses.map { use in
-            let declared = toolLookup[use.name]
-            return use
-        }
+        // Lookup is currently unused; left in place so callers can later validate
+        // that each parsed tool name matches one of the declared tools.
+        _ = toolLookup
+        return toolUses
     }
 
     public func fillMissingRequiredArgs(_ toolUses: [ToolUse], tools: [Tool]) -> [ToolUse] {
@@ -112,7 +120,7 @@ public final class ToolParser: @unchecked Sendable {
                 {
                     for req in required {
                         if case .string(let key) = req, args[key] == nil {
-                            args[key] = NSNull()
+                            args[key] = .null
                         }
                     }
                 }
@@ -189,7 +197,7 @@ public final class ToolParser: @unchecked Sendable {
                     guard let name = call["name"] as? String,
                         let args = call["arguments"] as? [String: Any]
                     else { return nil }
-                    return ToolUse(id: generateToolUseID(), name: name, arguments: args)
+                    return ToolUse(id: generateToolUseID(), name: name, jsonArguments: args)
                 }
                 if !toolUses.isEmpty {
                     return ParseResult(toolUses: toolUses)
@@ -213,7 +221,7 @@ public final class ToolParser: @unchecked Sendable {
                 let name = dict["name"] as? String
             {
                 let args = dict["arguments"] as? [String: Any] ?? [:]
-                let toolUse = ToolUse(id: generateToolUseID(), name: name, arguments: args)
+                let toolUse = ToolUse(id: generateToolUseID(), name: name, jsonArguments: args)
                 return ParseResult(toolUses: [toolUse])
             }
         }
@@ -236,7 +244,7 @@ public final class ToolParser: @unchecked Sendable {
                     guard let name = call["name"] as? String,
                         let args = call["arguments"] as? [String: Any]
                     else { return nil }
-                    return ToolUse(id: generateToolUseID(), name: name, arguments: args)
+                    return ToolUse(id: generateToolUseID(), name: name, jsonArguments: args)
                 }
                 if !toolUses.isEmpty {
                     return ParseResult(toolUses: toolUses)
@@ -277,7 +285,7 @@ public final class ToolParser: @unchecked Sendable {
             {
                 args = dict
             }
-            return ParseResult(toolUses: [ToolUse(id: generateToolUseID(), name: name, arguments: args)])
+            return ParseResult(toolUses: [ToolUse(id: generateToolUseID(), name: name, jsonArguments: args)])
         }
         return nil
     }
@@ -301,7 +309,7 @@ public final class ToolParser: @unchecked Sendable {
             {
                 args = dict
             }
-            return ParseResult(toolUses: [ToolUse(id: generateToolUseID(), name: name, arguments: args)])
+            return ParseResult(toolUses: [ToolUse(id: generateToolUseID(), name: name, jsonArguments: args)])
         }
         return nil
     }
@@ -318,6 +326,6 @@ public final class ToolParser: @unchecked Sendable {
             let name = dict["name"] as? String
         else { return nil }
         let args = dict["arguments"] as? [String: Any] ?? [:]
-        return ToolUse(id: generateToolUseID(), name: name, arguments: args)
+        return ToolUse(id: generateToolUseID(), name: name, jsonArguments: args)
     }
 }

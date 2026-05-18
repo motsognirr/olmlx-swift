@@ -1,9 +1,12 @@
 import Foundation
 
-public final class ModelStore: @unchecked Sendable {
+/// Models are addressed by HuggingFace path; `ModelStore` knows where they live
+/// on disk. It holds no mutable state — all methods are pure functions over
+/// `modelsDir` and the registry — so the type can be plain `Sendable` rather
+/// than an actor.
+public final class ModelStore: Sendable {
     private let modelsDir: URL
     private let registry: ModelRegistry
-    private let lock = NSLock()
 
     public init(modelsDir: URL, registry: ModelRegistry) {
         self.modelsDir = modelsDir
@@ -41,16 +44,16 @@ public final class ModelStore: @unchecked Sendable {
         return manifests
     }
 
-    public func show(name: String) throws -> ModelManifest? {
-        guard let config = registry.resolve(name) else { return nil }
+    public func show(name: String) async throws -> ModelManifest? {
+        guard let config = await registry.resolve(name) else { return nil }
         let path = localPath(for: config.hfPath)
         let manifestPath = path.appendingPathComponent("manifest.json")
         guard FileManager.default.fileExists(atPath: manifestPath.path) else { return nil }
         return try ModelManifest.load(from: manifestPath)
     }
 
-    public func delete(name: String) throws {
-        guard let config = registry.resolve(name) else {
+    public func delete(name: String) async throws {
+        guard let config = await registry.resolve(name) else {
             throw ModelStoreError.modelNotFound(name)
         }
         let path = localPath(for: config.hfPath)

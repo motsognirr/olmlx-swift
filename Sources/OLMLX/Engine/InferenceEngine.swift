@@ -62,7 +62,7 @@ public protocol InferenceEngineProtocol: AnyObject, Sendable {
 // MARK: - Default Engine
 
 /// Default inference engine that loads models using mlx-swift-lm.
-public final class DefaultInferenceEngine: InferenceEngineProtocol, @unchecked Sendable {
+public final class DefaultInferenceEngine: InferenceEngineProtocol {
     private let tokenizerLoader: any TokenizerLoader
 
     public init(tokenizerLoader: any TokenizerLoader = MLXTokenizerLoader()) {

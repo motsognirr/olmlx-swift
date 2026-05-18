@@ -1,7 +1,7 @@
 import Foundation
 import MLXLMCommon
 
-public struct LoadedModel: @unchecked Sendable {
+public struct LoadedModel: Sendable {
     public var name: String
     public var hfPath: String
     public var isVLM: Bool = false
@@ -56,25 +56,20 @@ public func parseKeepAlive(_ value: String) -> TimeInterval? {
     return nil
 }
 
-public final class PromptCacheStore: @unchecked Sendable {
+public actor PromptCacheStore {
     private var store: [String: CachedPromptState] = [:]
     private let maxSlots: Int
     private var accessOrder: [String] = []
-    private let lock = NSLock()
 
     public init(maxSlots: Int = 4) {
         self.maxSlots = maxSlots
     }
 
     public func get(key: String) -> CachedPromptState? {
-        lock.lock()
-        defer { lock.unlock() }
         return store[key]
     }
 
     public func set(key: String, state: CachedPromptState) {
-        lock.lock()
-        defer { lock.unlock() }
         if store[key] == nil && store.count >= maxSlots {
             if let oldest = accessOrder.first {
                 store.removeValue(forKey: oldest)
@@ -87,29 +82,24 @@ public final class PromptCacheStore: @unchecked Sendable {
     }
 
     public func remove(key: String) {
-        lock.lock()
-        defer { lock.unlock() }
         store.removeValue(forKey: key)
         accessOrder.removeAll { $0 == key }
     }
 
     public func clear() {
-        lock.lock()
-        defer { lock.unlock() }
         store.removeAll()
         accessOrder.removeAll()
     }
 }
 
-public final class ModelManager: @unchecked Sendable {
+public actor ModelManager {
     public let registry: ModelRegistry
     public let store: ModelStore
     public let settings: Settings
     private var loadedModels: [String: LoadedModel] = [:]
     private let maxLoaded: Int
-    private let storageLock = NSLock()
     public let promptCache: PromptCacheStore
-    public var inferenceEngine: (any InferenceEngineProtocol)?
+    public private(set) var inferenceEngine: (any InferenceEngineProtocol)?
 
     public init(
         registry: ModelRegistry,
@@ -126,20 +116,18 @@ public final class ModelManager: @unchecked Sendable {
         self.inferenceEngine = inferenceEngine
     }
 
-    private func withLoadedModels<T>(_ body: (inout [String: LoadedModel]) throws -> T) rethrows -> T {
-        storageLock.lock()
-        defer { storageLock.unlock() }
-        return try body(&loadedModels)
+    public func setInferenceEngine(_ engine: (any InferenceEngineProtocol)?) {
+        self.inferenceEngine = engine
     }
 
     public func ensureLoaded(name: String, keepAlive: String? = nil) async throws -> LoadedModel {
         let normalized = ModelRegistry.normalizeName(name)
 
-        if let model = withLoadedModels({ $0[normalized] }) {
+        if let model = loadedModels[normalized] {
             return model
         }
 
-        guard let config = registry.resolve(name) else {
+        guard let config = await registry.resolve(name) else {
             throw ModelLoadError.notFound(name)
         }
 
@@ -167,47 +155,45 @@ public final class ModelManager: @unchecked Sendable {
             model.expiresAt = duration > 0 ? Date().addingTimeInterval(duration) : nil
         }
 
-        return withLoadedModels { models in
-            if models.count >= maxLoaded {
-                if let oldest = models.min(by: { $0.value.loadedAt < $1.value.loadedAt }) {
-                    models.removeValue(forKey: oldest.key)
-                }
+        if loadedModels.count >= maxLoaded {
+            if let oldest = loadedModels.min(by: { $0.value.loadedAt < $1.value.loadedAt }) {
+                loadedModels.removeValue(forKey: oldest.key)
             }
-            models[normalized] = model
-            return model
         }
+        loadedModels[normalized] = model
+        return model
     }
 
     public func getLoaded() -> [LoadedModel] {
-        return withLoadedModels { Array($0.values) }
+        return Array(loadedModels.values)
     }
 
     public func unload(name: String) {
-        _ = withLoadedModels { models in
-            models.removeValue(forKey: ModelRegistry.normalizeName(name))
-        }
+        loadedModels.removeValue(forKey: ModelRegistry.normalizeName(name))
     }
 
-    public func invalidatePromptCache(for model: String) {
-        promptCache.remove(key: ModelRegistry.normalizeName(model))
+    public func invalidatePromptCache(for model: String) async {
+        await promptCache.remove(key: ModelRegistry.normalizeName(model))
     }
 
-    public func startExpiryChecker() -> Task<Void, Never> {
+    public nonisolated func startExpiryChecker() -> Task<Void, Never> {
         return Task { [weak self] in
             while !Task.isCancelled {
                 guard let self else { break }
-                self.withLoadedModels { models in
-                    let now = Date()
-                    let expired = models.filter {
-                        if let exp = $0.value.expiresAt { return now >= exp }
-                        return false
-                    }
-                    for (name, _) in expired {
-                        models.removeValue(forKey: name)
-                    }
-                }
+                await self.expireOnce()
                 try? await Task.sleep(nanoseconds: 30_000_000_000)
             }
+        }
+    }
+
+    private func expireOnce() {
+        let now = Date()
+        let expired = loadedModels.filter {
+            if let exp = $0.value.expiresAt { return now >= exp }
+            return false
+        }
+        for (name, _) in expired {
+            loadedModels.removeValue(forKey: name)
         }
     }
 }

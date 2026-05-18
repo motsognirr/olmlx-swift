@@ -91,18 +91,19 @@ struct GenerateParametersMappingTests {
 
 @Suite("ModelManager Inference Integration")
 struct ModelManagerInferenceTests {
-    @Test func inferenceDelegation() {
+    @Test func inferenceDelegation() async {
         let tmpDir = FileManager.default.temporaryDirectory
         let configPath = tmpDir.appendingPathComponent("test-inference-models.json")
         let registry = ModelRegistry(configPath: configPath)
-        registry.addMapping(name: "test", config: ModelConfig(hfPath: "org/test"))
+        await registry.addMapping(name: "test", config: ModelConfig(hfPath: "org/test"))
 
         let mockEngine = MockInferenceEngine()
         let store = ModelStore(modelsDir: tmpDir, registry: registry)
         let manager = ModelManager(registry: registry, store: store)
-        manager.inferenceEngine = mockEngine
+        await manager.setInferenceEngine(mockEngine)
 
-        #expect(manager.inferenceEngine != nil)
+        let engine = await manager.inferenceEngine
+        #expect(engine != nil)
     }
 }
 

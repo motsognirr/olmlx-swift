@@ -126,21 +126,21 @@ struct KeepAliveTests {
 
 @Suite("Prompt Cache")
 struct PromptCacheTests {
-    @Test func setAndGet() {
+    @Test func setAndGet() async {
         let cache = PromptCacheStore(maxSlots: 4)
-        cache.set(key: "test", state: CachedPromptState(tokens: [1, 2, 3]))
-        let retrieved = cache.get(key: "test")
+        await cache.set(key: "test", state: CachedPromptState(tokens: [1, 2, 3]))
+        let retrieved = await cache.get(key: "test")
         #expect(retrieved != nil)
         #expect(retrieved?.tokens == [1, 2, 3])
     }
 
-    @Test func lruEviction() {
+    @Test func lruEviction() async {
         let cache = PromptCacheStore(maxSlots: 2)
-        cache.set(key: "a", state: CachedPromptState(tokens: [1]))
-        cache.set(key: "b", state: CachedPromptState(tokens: [2]))
-        cache.set(key: "c", state: CachedPromptState(tokens: [3]))
-        #expect(cache.get(key: "a") == nil)
-        #expect(cache.get(key: "b") != nil)
-        #expect(cache.get(key: "c") != nil)
+        await cache.set(key: "a", state: CachedPromptState(tokens: [1]))
+        await cache.set(key: "b", state: CachedPromptState(tokens: [2]))
+        await cache.set(key: "c", state: CachedPromptState(tokens: [3]))
+        #expect(await cache.get(key: "a") == nil)
+        #expect(await cache.get(key: "b") != nil)
+        #expect(await cache.get(key: "c") != nil)
     }
 }

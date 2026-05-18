@@ -2,7 +2,7 @@ import ArgumentParser
 import Foundation
 import OLMLX
 
-struct OLMXCLI: ParsableCommand {
+struct OLMXCLI: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "olmlx",
         abstract: "Drop-in Ollama API replacement powered by Apple's MLX framework",
@@ -19,7 +19,7 @@ struct OLMXCLI: ParsableCommand {
     )
 }
 
-struct Serve: ParsableCommand {
+struct Serve: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         abstract: "Start the API server"
     )
@@ -36,13 +36,13 @@ struct Serve: ParsableCommand {
     @Option(name: .long, help: "KV cache quantization (e.g. turboquant:4)")
     var kvCacheQuant: String?
 
-    mutating func run() throws {
+    mutating func run() async throws {
         let settings = Settings()
         let hostStr = host ?? settings.host
         let portNum = port ?? settings.port
 
         let registry = ModelRegistry(configPath: settings.modelsConfig)
-        try registry.load()
+        try await registry.load()
 
         let store = ModelStore(modelsDir: settings.modelsDir, registry: registry)
         let engine = DefaultInferenceEngine()
@@ -61,7 +61,7 @@ struct Serve: ParsableCommand {
         app.http.server.configuration.hostname = hostStr
         app.http.server.configuration.port = portNum
 
-        try app.run()
+        try await app.execute()
     }
 }
 
@@ -72,14 +72,14 @@ struct Models: ParsableCommand {
     )
 }
 
-struct ModelsList: ParsableCommand {
+struct ModelsList: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "list", abstract: "List registered models")
 
-    mutating func run() throws {
+    mutating func run() async throws {
         let settings = Settings()
         let registry = ModelRegistry(configPath: settings.modelsConfig)
-        try registry.load()
-        let models = registry.listModels()
+        try await registry.load()
+        let models = await registry.listModels()
         if models.isEmpty {
             print("No models registered")
         } else {
@@ -90,19 +90,19 @@ struct ModelsList: ParsableCommand {
     }
 }
 
-struct ModelsShow: ParsableCommand {
+struct ModelsShow: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "show", abstract: "Show model details")
 
     @Argument(help: "Model name")
     var model: String
 
-    mutating func run() throws {
+    mutating func run() async throws {
         let settings = Settings()
         let registry = ModelRegistry(configPath: settings.modelsConfig)
-        try registry.load()
+        try await registry.load()
         let store = ModelStore(modelsDir: settings.modelsDir, registry: registry)
 
-        guard let config = registry.resolve(model) else {
+        guard let config = await registry.resolve(model) else {
             print("Model '\(model)' not found in registry")
             return
         }
@@ -111,7 +111,7 @@ struct ModelsShow: ParsableCommand {
         if let spec = config.speculativeDraftModel { print("Draft: \(spec)") }
         if let kvq = config.resolvedKVCacheQuant(global: settings) { print("KV Cache Quant: \(kvq)") }
 
-        if let manifest = try? store.show(name: model) {
+        if let manifest = try? await store.show(name: model) {
             print("Size: \(manifest.size) bytes")
             print("Family: \(manifest.family)")
             print("Parameters: \(manifest.parameterSize)")
@@ -120,35 +120,35 @@ struct ModelsShow: ParsableCommand {
     }
 }
 
-struct ModelsDelete: ParsableCommand {
+struct ModelsDelete: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "delete", abstract: "Delete a model")
 
     @Argument(help: "Model name")
     var model: String
 
-    mutating func run() throws {
+    mutating func run() async throws {
         let settings = Settings()
         let registry = ModelRegistry(configPath: settings.modelsConfig)
-        try registry.load()
+        try await registry.load()
         let store = ModelStore(modelsDir: settings.modelsDir, registry: registry)
-        try store.delete(name: model)
-        registry.remove(model)
-        try registry.save()
+        try await store.delete(name: model)
+        await registry.remove(model)
+        try await registry.save()
         print("Deleted model '\(model)'")
     }
 }
 
-struct ModelsSearch: ParsableCommand {
+struct ModelsSearch: AsyncParsableCommand {
     static let configuration = CommandConfiguration(abstract: "Search models")
 
     @Argument(help: "Search query")
     var query: String
 
-    mutating func run() throws {
+    mutating func run() async throws {
         let settings = Settings()
         let registry = ModelRegistry(configPath: settings.modelsConfig)
-        try registry.load()
-        let results = registry.search(query)
+        try await registry.load()
+        let results = await registry.search(query)
         if results.isEmpty {
             print("No models matching '\(query)'")
         } else {
