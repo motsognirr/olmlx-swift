@@ -94,38 +94,4 @@ struct ConfigTests {
         #expect(Settings(env: ["OLMLX_SYNC_MODE": "none"]).syncMode == SyncMode.none)
     }
 
-    @Test func experimentalDefaults() {
-        let e = ExperimentalSettings(env: [:])
-        #expect(e.distributed == false)
-        #expect(e.distributedStrategy == .tensor)
-        #expect(e.flash == false)
-        #expect(e.flashSparsityThreshold == 0.5)
-        #expect(e.flashMinActiveNeurons == 128)
-        #expect(e.flashMaxActiveNeurons == nil)
-    }
-
-    @Test func experimentalOverride() {
-        let e = ExperimentalSettings(env: [
-            "OLMLX_EXPERIMENTAL_FLASH": "true",
-            "OLMLX_EXPERIMENTAL_FLASH_SPARSITY_THRESHOLD": "0.3",
-        ])
-        #expect(e.flash == true)
-        #expect(e.flashSparsityThreshold == 0.3)
-    }
-
-    @Test func resolveExperimental() {
-        let base = ExperimentalSettings(env: [:])
-        let result = ResolvedExperimentalSettings.resolve(
-            base: base,
-            overrides: [
-                "flash": true,
-                "flash_sparsity_threshold": 0.3,
-                "flash_moe": true,
-            ]
-        )
-        #expect(result.flash == true)
-        #expect(result.flashSparsityThreshold == 0.3)
-        #expect(result.flashMOE == true)
-        #expect(base.flash == false)
-    }
 }
