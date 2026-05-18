@@ -89,6 +89,50 @@ struct GenerateParametersMappingTests {
     }
 }
 
+@Suite("KV Cache Quant")
+struct KVCacheQuantTests {
+    @Test func applyAffine4() {
+        var params = mapToGenerateParameters(from: nil)
+        applyKVCacheQuant(&params, spec: "affine:4")
+        #expect(params.kvBits == 4)
+        #expect(params.kvGroupSize == 64)
+    }
+
+    @Test func applyAffine2And8() {
+        var p2 = mapToGenerateParameters(from: nil)
+        applyKVCacheQuant(&p2, spec: "affine:2")
+        #expect(p2.kvBits == 2)
+
+        var p8 = mapToGenerateParameters(from: nil)
+        applyKVCacheQuant(&p8, spec: "affine:8")
+        #expect(p8.kvBits == 8)
+    }
+
+    @Test func applyNilSpecLeavesUnchanged() {
+        var params = mapToGenerateParameters(from: nil)
+        applyKVCacheQuant(&params, spec: nil)
+        #expect(params.kvBits == nil)
+    }
+
+    @Test func applyInvalidSpecLeavesUnchanged() {
+        var params = mapToGenerateParameters(from: nil)
+        applyKVCacheQuant(&params, spec: "turboquant:4")
+        #expect(params.kvBits == nil)
+    }
+
+    @Test func resolvedKVCacheQuantPrefersPerModel() {
+        let global = Settings(env: ["OLMLX_KV_CACHE_QUANT": "affine:4"])
+        let config = ModelConfig(hfPath: "org/m", kvCacheQuant: "affine:8")
+        #expect(config.resolvedKVCacheQuant(global: global) == "affine:8")
+    }
+
+    @Test func resolvedKVCacheQuantFallsBackToGlobal() {
+        let global = Settings(env: ["OLMLX_KV_CACHE_QUANT": "affine:4"])
+        let config = ModelConfig(hfPath: "org/m")
+        #expect(config.resolvedKVCacheQuant(global: global) == "affine:4")
+    }
+}
+
 @Suite("ModelManager Inference Integration")
 struct ModelManagerInferenceTests {
     @Test func inferenceDelegation() async {

@@ -127,6 +127,18 @@ public func mapToGenerateParameters(from options: ModelOptions?) -> GeneratePara
     return params
 }
 
+/// Applies a KV cache quantization spec (e.g. `affine:4`) to ``GenerateParameters``.
+///
+/// Sets ``GenerateParameters/kvBits`` so MLX's `maybeQuantizeKVCache` converts
+/// per-layer simple caches into ``QuantizedKVCache`` once the prefill threshold
+/// passes. The spec format is validated by ``parseKVCacheQuant``.
+public func applyKVCacheQuant(_ params: inout GenerateParameters, spec: String?) {
+    guard let spec, let parsed = parseKVCacheQuant(spec) else { return }
+    params.kvBits = parsed.bits
+    // MLX default group size; not currently configurable per request.
+    params.kvGroupSize = 64
+}
+
 // MARK: - Chat Message Helpers
 
 /// Converts OLMLX ``Message`` array to raw dict format for chat template application.

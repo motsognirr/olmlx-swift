@@ -15,18 +15,28 @@ public enum SpeculativeStrategy: String, Codable, Sendable {
 }
 
 // MARK: - KV Cache Quant Validation
+//
+// MLX-swift currently only implements affine quantization for KV caches
+// (see ``QuantizedKVCache`` and ``maybeQuantizeKVCache`` in MLXLMCommon).
+// We reject other kinds at parse time rather than silently dropping them.
 
-public func validateKVCacheQuantFormat(_ value: String) -> String? {
-    let validMethods: Set<String> = ["turboquant", "spectral"]
-    let validBits: Set<String> = ["2", "4"]
+public let kvCacheQuantSupportedKinds: Set<String> = ["affine"]
+public let kvCacheQuantSupportedBits: Set<Int> = [2, 4, 8]
+
+public func parseKVCacheQuant(_ value: String) -> (kind: String, bits: Int)? {
     let parts = value.split(separator: ":", maxSplits: 1).map(String.init)
     guard parts.count == 2,
-        validMethods.contains(parts[0]),
-        validBits.contains(parts[1])
+        kvCacheQuantSupportedKinds.contains(parts[0]),
+        let bits = Int(parts[1]),
+        kvCacheQuantSupportedBits.contains(bits)
     else {
         return nil
     }
-    return value
+    return (parts[0], bits)
+}
+
+public func validateKVCacheQuantFormat(_ value: String) -> String? {
+    return parseKVCacheQuant(value) == nil ? nil : value
 }
 
 // MARK: - Byte Count Validation
@@ -205,7 +215,17 @@ public struct Settings: Sendable {
         }
 
         if let v = env["\(prefix)KV_CACHE_QUANT"] {
-            self.kvCacheQuant = validateKVCacheQuantFormat(v)
+            if let valid = validateKVCacheQuantFormat(v) {
+                self.kvCacheQuant = valid
+            } else {
+                let kinds = kvCacheQuantSupportedKinds.sorted().joined(separator: ",")
+                let bits = kvCacheQuantSupportedBits.sorted().map(String.init).joined(separator: ",")
+                FileHandle.standardError.write(
+                    Data(
+                        "warning: ignoring OLMLX_KV_CACHE_QUANT='\(v)' — expected <kind>:<bits> with kind in {\(kinds)} and bits in {\(bits)}\n"
+                            .utf8))
+                self.kvCacheQuant = nil
+            }
         } else {
             self.kvCacheQuant = nil
         }
