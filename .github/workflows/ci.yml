@@ -79,8 +79,16 @@ jobs:
             ${{ runner.os }}-spm-build-
             ${{ runner.os }}-spm-
 
-      - name: Install Metal Toolchain
-        run: xcodebuild -downloadComponent MetalToolchain
+      - name: Ensure Metal Toolchain available
+        run: |
+          xcodebuild -version
+          if xcrun -sdk macosx metal --version 2>&1; then
+            echo "Metal compiler already available."
+          else
+            echo "Metal compiler missing; downloading Metal Toolchain component..."
+            sudo xcodebuild -downloadComponent MetalToolchain
+            xcrun -sdk macosx metal --version
+          fi
 
       - name: make build
         run: make build
