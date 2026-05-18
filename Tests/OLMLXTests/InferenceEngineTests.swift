@@ -116,6 +116,26 @@ struct MockInferenceEngineTests {
         engine.loadedModels = []
         #expect(engine.loadedModels == [])
     }
+
+    @Test func loadModelRecordsCallAndThrowsTestError() async {
+        let engine = MockInferenceEngine()
+        let dir = URL(fileURLWithPath: "/tmp/some-model")
+        await #expect(throws: MockInferenceError.noStubContainerConfigured("some-model")) {
+            _ = try await engine.loadModel(from: dir)
+        }
+        #expect(engine.loadedModels == ["some-model"])
+    }
+
+    @Test func loadModelHonorsShouldFail() async {
+        let engine = MockInferenceEngine()
+        engine.shouldFail = true
+        let dir = URL(fileURLWithPath: "/tmp/x")
+        await #expect(throws: (any Error).self) {
+            _ = try await engine.loadModel(from: dir)
+        }
+        // shouldFail short-circuits before recording the call.
+        #expect(engine.loadedModels == [])
+    }
 }
 
 @Suite("Tools Conversion")

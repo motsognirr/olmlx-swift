@@ -176,9 +176,21 @@ public func anyCodableToSendable(_ value: AnyCodable) -> any Sendable {
 
 // MARK: - Mock Engine (for tests)
 
+public enum MockInferenceError: Error, Sendable, Equatable {
+    /// `loadModel` was called on a `MockInferenceEngine` that has no `stubContainer`
+    /// configured. Set `stubContainer` to a real `ModelContainer` if the test needs
+    /// one, or assert via `loadedModels` that the call was made.
+    case noStubContainerConfigured(String)
+}
+
 public final class MockInferenceEngine: InferenceEngineProtocol, @unchecked Sendable {
     public var loadedModels: [String] = []
     public var shouldFail: Bool = false
+
+    /// Optional container to return from `loadModel`. Tests that need a real
+    /// container (rare) can supply one here; most tests should leave it nil
+    /// and assert on `loadedModels` instead.
+    public var stubContainer: ModelContainer?
 
     public init() {}
 
@@ -187,7 +199,10 @@ public final class MockInferenceEngine: InferenceEngineProtocol, @unchecked Send
             throw InferenceError.modelNotLoaded(directory.path)
         }
         loadedModels.append(directory.lastPathComponent)
-        fatalError("MockInferenceEngine.loadModel cannot create a real ModelContainer — use for unit testing only")
+        if let stub = stubContainer {
+            return stub
+        }
+        throw MockInferenceError.noStubContainerConfigured(directory.lastPathComponent)
     }
 }
 
