@@ -2,6 +2,7 @@ import ArgumentParser
 import Foundation
 import OLMLX
 
+@main
 struct OLMXCLI: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "olmlx",
@@ -272,4 +273,3 @@ struct ServiceStatus: ParsableCommand {
     }
 }
 
-OLMXCLI.main()
