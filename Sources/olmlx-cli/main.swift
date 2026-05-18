@@ -56,7 +56,7 @@ struct Serve: AsyncParsableCommand {
 
         _ = manager.startExpiryChecker()
 
-        let app = try createApp(registry: registry, store: store, manager: manager)
+        let app = try createApp(registry: registry, store: store, manager: manager, settings: settings)
 
         print("olmlx v0.1.0 starting on http://\(hostStr):\(portNum)")
         app.http.server.configuration.hostname = hostStr

@@ -1,7 +1,12 @@
 import Foundation
 import Vapor
 
-public func createApp(registry: ModelRegistry, store: ModelStore, manager: ModelManager) throws -> Application {
+public func createApp(
+    registry: ModelRegistry,
+    store: ModelStore,
+    manager: ModelManager,
+    settings: Settings = Settings()
+) throws -> Application {
     var env = try Environment.detect()
     try LoggingSystem.bootstrap(from: &env)
     let app = Application(env)
@@ -10,7 +15,7 @@ public func createApp(registry: ModelRegistry, store: ModelStore, manager: Model
     app.storage[ModelStoreKey.self] = store
     app.storage[ModelManagerKey.self] = manager
 
-    app.installDefaultMiddleware()
+    app.installDefaultMiddleware(settings: settings)
 
     app.mountOllamaRoutes()
     app.mountOpenAIRoutes()
