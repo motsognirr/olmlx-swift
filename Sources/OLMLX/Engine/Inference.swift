@@ -37,10 +37,6 @@ public struct InferenceOptions: Sendable {
     }
 }
 
-public func estimateKVCacheBytes(config: ModelConfig, numTokens: Int) -> Int {
-    return numTokens * 2 * 4096 * 2
-}
-
 public func countChatTokens(
     messages: [Message],
     tools: [Tool]?,
