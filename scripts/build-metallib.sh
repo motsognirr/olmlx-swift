@@ -70,6 +70,14 @@ if [[ -f "$OUT" ]]; then
     fi
 fi
 
+# Metal compile flags match upstream mlx-swift's CMake config
+# (Source/Cmlx/mlx/cmake/extension.cmake, mlx/backend/metal/kernels/CMakeLists.txt).
+# Debug builds also embed line tables and source records for shader debugging.
+METAL_FLAGS=(-Wall -Wextra -fno-fast-math -Wno-c++17-extensions)
+if [[ "$CONFIG" == "debug" ]]; then
+    METAL_FLAGS+=(-gline-tables-only -frecord-sources)
+fi
+
 echo "build-metallib: compiling ${#KERNELS[@]} kernels (config=$CONFIG)"
 
 air_files=()
@@ -86,9 +94,7 @@ for src in "${KERNELS[@]}"; do
     echo "  metal -c $src"
     xcrun -sdk macosx metal \
         -c \
-        -ffast-math \
-        -gline-tables-only \
-        -frecord-sources \
+        "${METAL_FLAGS[@]}" \
         -I "$METAL_SRC" \
         "$src_path" \
         -o "$air"
