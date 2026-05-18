@@ -114,8 +114,11 @@ public func mapToGenerateParameters(from options: ModelOptions?) -> GeneratePara
     if let fp = opts.frequencyPenalty {
         params.frequencyPenalty = Float(fp)
     }
-    if let tp = opts.typicalP {
-        params.topP = Float(tp)
+    if opts.typicalP != nil {
+        // MLX `GenerateParameters` does not currently expose a typical-p sampler;
+        // drop the value rather than silently overwriting topP.
+        FileHandle.standardError.write(
+            Data("warning: typical_p is not supported by the MLX sampler; ignoring\n".utf8))
     }
     if let seed = opts.seed {
         _ = seed
