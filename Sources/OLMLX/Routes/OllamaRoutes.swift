@@ -122,9 +122,9 @@ extension Application {
 
             do {
                 _ = try await store.ensureDownloaded(hfPath: hfPath)
-            } catch let ModelStoreError.invalidHFPath(path) {
+            } catch ModelStoreError.invalidHFPath(let path) {
                 throw Abort(.badRequest, reason: "invalid HuggingFace path: \(path)")
-            } catch let ModelStoreError.downloadFailed(path, underlying) {
+            } catch ModelStoreError.downloadFailed(let path, let underlying) {
                 throw Abort(
                     .internalServerError,
                     reason: "failed to download \(path): \(underlying)"
@@ -153,15 +153,15 @@ extension Application {
         on(.POST, "api", "abort") { _ async throws -> Response in
             throw Abort(.notImplemented, reason: "request abort is not implemented")
         }
-        on(.POST, "api", "unload") { req -> HTTPStatus in
+        on(.POST, "api", "unload") { req async throws -> HTTPStatus in
             let body = try req.content.decode(UnloadRequest.self)
             let manager = req.application.storage[ModelManagerKey.self]!
-            manager.unload(name: body.model)
+            await manager.unload(name: body.model)
             return .ok
         }
-        get("api", "ps") { req -> PsResponse in
+        get("api", "ps") { req async -> PsResponse in
             let manager = req.application.storage[ModelManagerKey.self]!
-            let models = manager.getLoaded().map { lm in
+            let models = await manager.getLoaded().map { lm in
                 RunningModel(name: lm.name, model: lm.hfPath)
             }
             return PsResponse(models: models)
