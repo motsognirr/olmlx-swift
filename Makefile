@@ -5,7 +5,7 @@ CONFIG ?= release
 
 build:
 	swift build -c $(CONFIG)
-	$(MAKE) metallib CONFIG=$(CONFIG)
+	scripts/build-metallib.sh $(CONFIG)
 
 dev-build:
 	$(MAKE) build CONFIG=debug
@@ -31,7 +31,7 @@ format:
 format-check:
 	swift format lint --strict --recursive $(SOURCES)
 
-ci: lint test build verify-metallib
+ci: lint build test verify-metallib
 
 clean:
 	swift package clean
