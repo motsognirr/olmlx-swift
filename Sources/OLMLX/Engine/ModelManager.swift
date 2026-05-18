@@ -104,6 +104,7 @@ public final class PromptCacheStore: @unchecked Sendable {
 public final class ModelManager: @unchecked Sendable {
     public let registry: ModelRegistry
     public let store: ModelStore
+    public let settings: Settings
     private var loadedModels: [String: LoadedModel] = [:]
     private let maxLoaded: Int
     private let storageLock = NSLock()
@@ -111,13 +112,17 @@ public final class ModelManager: @unchecked Sendable {
     public var inferenceEngine: (any InferenceEngineProtocol)?
 
     public init(
-        registry: ModelRegistry, store: ModelStore, maxLoadedModels: Int = 1,
+        registry: ModelRegistry,
+        store: ModelStore,
+        settings: Settings = Settings(),
+        maxLoadedModels: Int? = nil,
         inferenceEngine: (any InferenceEngineProtocol)? = nil
     ) {
         self.registry = registry
         self.store = store
-        self.maxLoaded = maxLoadedModels
-        self.promptCache = PromptCacheStore(maxSlots: Settings.shared.promptCacheMaxSlots)
+        self.settings = settings
+        self.maxLoaded = maxLoadedModels ?? settings.maxLoadedModels
+        self.promptCache = PromptCacheStore(maxSlots: settings.promptCacheMaxSlots)
         self.inferenceEngine = inferenceEngine
     }
 
@@ -157,7 +162,7 @@ public final class ModelManager: @unchecked Sendable {
             }
         }
 
-        let keepAliveStr = keepAlive ?? config.keepAlive ?? Settings.shared.defaultKeepAlive
+        let keepAliveStr = keepAlive ?? config.keepAlive ?? settings.defaultKeepAlive
         if let duration = parseKeepAlive(keepAliveStr) {
             model.expiresAt = duration > 0 ? Date().addingTimeInterval(duration) : nil
         }

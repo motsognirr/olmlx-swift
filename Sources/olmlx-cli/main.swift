@@ -37,7 +37,7 @@ struct Serve: ParsableCommand {
     var kvCacheQuant: String?
 
     mutating func run() throws {
-        let settings = Settings.shared
+        let settings = Settings()
         let hostStr = host ?? settings.host
         let portNum = port ?? settings.port
 
@@ -49,7 +49,7 @@ struct Serve: ParsableCommand {
         let manager = ModelManager(
             registry: registry,
             store: store,
-            maxLoadedModels: settings.maxLoadedModels,
+            settings: settings,
             inferenceEngine: engine
         )
 
@@ -76,7 +76,8 @@ struct ModelsList: ParsableCommand {
     static let configuration = CommandConfiguration(commandName: "list", abstract: "List registered models")
 
     mutating func run() throws {
-        let registry = ModelRegistry(configPath: Settings.shared.modelsConfig)
+        let settings = Settings()
+        let registry = ModelRegistry(configPath: settings.modelsConfig)
         try registry.load()
         let models = registry.listModels()
         if models.isEmpty {
@@ -96,9 +97,10 @@ struct ModelsShow: ParsableCommand {
     var model: String
 
     mutating func run() throws {
-        let registry = ModelRegistry(configPath: Settings.shared.modelsConfig)
+        let settings = Settings()
+        let registry = ModelRegistry(configPath: settings.modelsConfig)
         try registry.load()
-        let store = ModelStore(modelsDir: Settings.shared.modelsDir, registry: registry)
+        let store = ModelStore(modelsDir: settings.modelsDir, registry: registry)
 
         guard let config = registry.resolve(model) else {
             print("Model '\(model)' not found in registry")
@@ -107,7 +109,7 @@ struct ModelsShow: ParsableCommand {
         print("Model: \(model)")
         print("HF Path: \(config.hfPath)")
         if let spec = config.speculativeDraftModel { print("Draft: \(spec)") }
-        if let kvq = config.resolvedKVCacheQuant() { print("KV Cache Quant: \(kvq)") }
+        if let kvq = config.resolvedKVCacheQuant(global: settings) { print("KV Cache Quant: \(kvq)") }
 
         if let manifest = try? store.show(name: model) {
             print("Size: \(manifest.size) bytes")
@@ -125,9 +127,10 @@ struct ModelsDelete: ParsableCommand {
     var model: String
 
     mutating func run() throws {
-        let registry = ModelRegistry(configPath: Settings.shared.modelsConfig)
+        let settings = Settings()
+        let registry = ModelRegistry(configPath: settings.modelsConfig)
         try registry.load()
-        let store = ModelStore(modelsDir: Settings.shared.modelsDir, registry: registry)
+        let store = ModelStore(modelsDir: settings.modelsDir, registry: registry)
         try store.delete(name: model)
         registry.remove(model)
         try registry.save()
@@ -142,7 +145,8 @@ struct ModelsSearch: ParsableCommand {
     var query: String
 
     mutating func run() throws {
-        let registry = ModelRegistry(configPath: Settings.shared.modelsConfig)
+        let settings = Settings()
+        let registry = ModelRegistry(configPath: settings.modelsConfig)
         try registry.load()
         let results = registry.search(query)
         if results.isEmpty {
@@ -229,7 +233,7 @@ struct ConfigShow: ParsableCommand {
     static let configuration = CommandConfiguration(abstract: "Show current configuration")
 
     mutating func run() throws {
-        let s = Settings.shared
+        let s = Settings()
         print("Host: \(s.host):\(s.port)")
         print("Models Dir: \(s.modelsDir.path)")
         print("Models Config: \(s.modelsConfig.path)")
