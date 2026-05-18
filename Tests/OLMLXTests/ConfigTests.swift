@@ -94,4 +94,37 @@ struct ConfigTests {
         #expect(Settings(env: ["OLMLX_SYNC_MODE": "none"]).syncMode == SyncMode.none)
     }
 
+    @Test func maxRequestBodySizeDefault() {
+        #expect(Settings(env: [:]).maxRequestBodySize == "16mb")
+    }
+
+    @Test func maxRequestBodySizeOverride() {
+        #expect(Settings(env: ["OLMLX_MAX_REQUEST_BODY_SIZE": "64mb"]).maxRequestBodySize == "64mb")
+        #expect(Settings(env: ["OLMLX_MAX_REQUEST_BODY_SIZE": "1gb"]).maxRequestBodySize == "1gb")
+        #expect(Settings(env: ["OLMLX_MAX_REQUEST_BODY_SIZE": "1048576"]).maxRequestBodySize == "1048576")
+    }
+
+    @Test func maxRequestBodySizeRejectsInvalid() {
+        #expect(Settings(env: ["OLMLX_MAX_REQUEST_BODY_SIZE": "bogus"]).maxRequestBodySize == "16mb")
+        #expect(Settings(env: ["OLMLX_MAX_REQUEST_BODY_SIZE": "16xb"]).maxRequestBodySize == "16mb")
+        #expect(Settings(env: ["OLMLX_MAX_REQUEST_BODY_SIZE": "-1mb"]).maxRequestBodySize == "16mb")
+        #expect(Settings(env: ["OLMLX_MAX_REQUEST_BODY_SIZE": "0"]).maxRequestBodySize == "16mb")
+        #expect(Settings(env: ["OLMLX_MAX_REQUEST_BODY_SIZE": ""]).maxRequestBodySize == "16mb")
+    }
+
+    @Test func validateByteCountFormatAccepts() {
+        #expect(validateByteCountFormat("16mb") == "16mb")
+        #expect(validateByteCountFormat("16MB") == "16mb")
+        #expect(validateByteCountFormat(" 2kb ") == "2kb")
+        #expect(validateByteCountFormat("1024") == "1024")
+    }
+
+    @Test func validateByteCountFormatRejects() {
+        #expect(validateByteCountFormat("bogus") == nil)
+        #expect(validateByteCountFormat("16xb") == nil)
+        #expect(validateByteCountFormat("mb") == nil)
+        #expect(validateByteCountFormat("0") == nil)
+        #expect(validateByteCountFormat("-1mb") == nil)
+    }
+
 }

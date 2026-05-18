@@ -29,6 +29,26 @@ public func validateKVCacheQuantFormat(_ value: String) -> String? {
     return value
 }
 
+// MARK: - Byte Count Validation
+//
+// Vapor's `ByteCount` string parser fatalErrors on invalid input, so we
+// pre-validate operator-supplied values before handing them to Vapor.
+// Accepts a positive integer optionally suffixed with kb / mb / gb / tb
+// (case-insensitive, suffixes are powers of two per Vapor's convention).
+
+public func validateByteCountFormat(_ value: String) -> String? {
+    let trimmed = value.trimmingCharacters(in: .whitespaces)
+    if let n = Int(trimmed), n > 0 { return trimmed }
+    let lowered = trimmed.lowercased()
+    let suffixes = ["kb", "mb", "gb", "tb"]
+    for suffix in suffixes where lowered.hasSuffix(suffix) {
+        let numberPart = lowered.dropLast(suffix.count)
+        if let n = Int(numberPart), n > 0 { return lowered }
+        return nil
+    }
+    return nil
+}
+
 // MARK: - Settings
 //
 // Immutable, Sendable snapshot of server configuration loaded once at startup
@@ -63,6 +83,7 @@ public struct Settings: Sendable {
     public let speculativeStrategy: SpeculativeStrategy
     public let speculativeDraftModel: String?
     public let speculativeTokens: Int?
+    public let maxRequestBodySize: String
 
     public init(env: [String: String] = ProcessInfo.processInfo.environment) {
         let prefix = "OLMLX_"
@@ -208,6 +229,12 @@ public struct Settings: Sendable {
             self.speculativeTokens = t
         } else {
             self.speculativeTokens = nil
+        }
+
+        if let v = env["\(prefix)MAX_REQUEST_BODY_SIZE"], let valid = validateByteCountFormat(v) {
+            self.maxRequestBodySize = valid
+        } else {
+            self.maxRequestBodySize = "16mb"
         }
     }
 }

@@ -17,7 +17,7 @@ public struct RequestIDMiddleware: AsyncMiddleware {
 }
 
 extension Application {
-    func installDefaultMiddleware() {
+    func installDefaultMiddleware(settings: Settings) {
         let corsConfig = CORSMiddleware.Configuration(
             allowedOrigin: .originBased,
             allowedMethods: [.GET, .POST, .PUT, .OPTIONS, .DELETE, .PATCH, .HEAD],
@@ -25,5 +25,7 @@ extension Application {
         )
         middleware.use(CORSMiddleware(configuration: corsConfig))
         middleware.use(RequestIDMiddleware())
+
+        routes.defaultMaxBodySize = ByteCount(stringLiteral: settings.maxRequestBodySize)
     }
 }
