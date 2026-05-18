@@ -61,9 +61,42 @@ KERNELS=(
     steel/attn/kernels/steel_attention.metal
 )
 
-echo "build-metallib: preconditions OK (config=$CONFIG)"
-echo "  CHECKOUT=$CHECKOUT"
-echo "  METAL_SRC=$METAL_SRC"
-echo "  OUT=$OUT"
-echo "  WORK=$WORK"
-echo "  kernels=${#KERNELS[@]}"
+# Up-to-date check: skip the whole build if OUT is newer than every input.
+if [[ -f "$OUT" ]]; then
+    newest_input="$(find "$METAL_SRC" \( -name '*.metal' -o -name '*.h' \) -newer "$OUT" -print -quit)"
+    if [[ -z "$newest_input" ]]; then
+        echo "build-metallib: $OUT up to date"
+        exit 0
+    fi
+fi
+
+echo "build-metallib: compiling ${#KERNELS[@]} kernels (config=$CONFIG)"
+
+air_files=()
+for src in "${KERNELS[@]}"; do
+    src_path="$METAL_SRC/$src"
+    if [[ ! -f "$src_path" ]]; then
+        echo "error: missing kernel source: $src_path" >&2
+        exit 1
+    fi
+    # Flatten path separators so steel/attn/kernels/steel_attention.metal
+    # becomes a single .air file in $WORK without nested dirs.
+    flat="${src//\//_}"
+    air="$WORK/${flat%.metal}.air"
+    echo "  metal -c $src"
+    xcrun -sdk macosx metal \
+        -c \
+        -ffast-math \
+        -gline-tables-only \
+        -frecord-sources \
+        -I "$METAL_SRC" \
+        "$src_path" \
+        -o "$air"
+    air_files+=("$air")
+done
+
+echo "build-metallib: linking $OUT"
+xcrun -sdk macosx metallib "${air_files[@]}" -o "$OUT"
+
+size="$(stat -f '%z' "$OUT")"
+echo "build-metallib: wrote $OUT ($size bytes)"
