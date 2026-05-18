@@ -11,10 +11,12 @@ public struct LoadedModel: @unchecked Sendable {
     public var expiresAt: Date?
     public var container: ModelContainer?
 
-    public init(name: String, hfPath: String, isVLM: Bool = false,
-                templateCaps: TemplateCaps = TemplateCaps(),
-                config: ModelConfig, expiresAt: Date? = nil,
-                container: ModelContainer? = nil) {
+    public init(
+        name: String, hfPath: String, isVLM: Bool = false,
+        templateCaps: TemplateCaps = TemplateCaps(),
+        config: ModelConfig, expiresAt: Date? = nil,
+        container: ModelContainer? = nil
+    ) {
         self.name = name
         self.hfPath = hfPath
         self.isVLM = isVLM
@@ -108,8 +110,10 @@ public final class ModelManager: @unchecked Sendable {
     public let promptCache: PromptCacheStore
     public var inferenceEngine: (any InferenceEngineProtocol)?
 
-    public init(registry: ModelRegistry, store: ModelStore, maxLoadedModels: Int = 1,
-                inferenceEngine: (any InferenceEngineProtocol)? = nil) {
+    public init(
+        registry: ModelRegistry, store: ModelStore, maxLoadedModels: Int = 1,
+        inferenceEngine: (any InferenceEngineProtocol)? = nil
+    ) {
         self.registry = registry
         self.store = store
         self.maxLoaded = maxLoadedModels

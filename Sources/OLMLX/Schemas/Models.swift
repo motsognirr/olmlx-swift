@@ -15,8 +15,10 @@ public struct ModelDetails: Codable, Sendable {
         case quantizationLevel = "quantization_level"
     }
 
-    public init(parentModel: String = "", format: String = "mlx", family: String = "",
-                families: [String]? = nil, parameterSize: String = "", quantizationLevel: String = "") {
+    public init(
+        parentModel: String = "", format: String = "mlx", family: String = "",
+        families: [String]? = nil, parameterSize: String = "", quantizationLevel: String = ""
+    ) {
         self.parentModel = parentModel
         self.format = format
         self.family = family
@@ -39,8 +41,10 @@ public struct ModelInfo: Codable, Sendable {
         case modifiedAt = "modified_at"
     }
 
-    public init(name: String, model: String = "", modifiedAt: String = "",
-                size: Int = 0, digest: String = "", details: ModelDetails = ModelDetails()) {
+    public init(
+        name: String, model: String = "", modifiedAt: String = "",
+        size: Int = 0, digest: String = "", details: ModelDetails = ModelDetails()
+    ) {
         self.name = name
         self.model = model
         self.modifiedAt = modifiedAt
@@ -154,8 +158,10 @@ public struct CreateRequest: Codable, Sendable {
     public var path: String?
     public var quantize: String?
 
-    public init(model: String, modelfile: String? = nil, stream: Bool = true,
-                path: String? = nil, quantize: String? = nil) {
+    public init(
+        model: String, modelfile: String? = nil, stream: Bool = true,
+        path: String? = nil, quantize: String? = nil
+    ) {
         self.model = model
         self.modelfile = modelfile
         self.stream = stream

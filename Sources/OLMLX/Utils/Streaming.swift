@@ -9,10 +9,12 @@ public struct StreamToken: Sendable {
     public var generationTps: Double
     public var finishReason: String?
 
-    public init(text: String, token: Int? = nil,
-                promptTokens: Int, generationTokens: Int,
-                promptTps: Double, generationTps: Double,
-                finishReason: String? = nil) {
+    public init(
+        text: String, token: Int? = nil,
+        promptTokens: Int, generationTokens: Int,
+        promptTps: Double, generationTps: Double,
+        finishReason: String? = nil
+    ) {
         self.text = text
         self.token = token
         self.promptTokens = promptTokens
@@ -155,11 +157,10 @@ private func findEarliest(tags: [String], in s: String) -> (String, Int) {
 private func longestPartialSuffix(buf: String, tags: [String]) -> Int {
     var longest = 0
     for tag in tags {
-        for i in stride(from: min(tag.count, buf.count), through: longest + 1, by: -1) {
-            if tag.hasPrefix(buf.suffix(i)) {
-                longest = i
-                break
-            }
+        for i in stride(from: min(tag.count, buf.count), through: longest + 1, by: -1)
+        where tag.hasPrefix(buf.suffix(i)) {
+            longest = i
+            break
         }
     }
     return longest

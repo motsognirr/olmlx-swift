@@ -9,9 +9,11 @@ public struct InferenceOptions: Sendable {
     public var seed: Int?
     public var repetitionPenalty: Double?
 
-    public init(temperature: Double? = nil, topP: Double? = nil, topK: Int? = nil,
-                maxTokens: Int? = nil, stop: [String]? = nil, seed: Int? = nil,
-                repetitionPenalty: Double? = nil) {
+    public init(
+        temperature: Double? = nil, topP: Double? = nil, topK: Int? = nil,
+        maxTokens: Int? = nil, stop: [String]? = nil, seed: Int? = nil,
+        repetitionPenalty: Double? = nil
+    ) {
         self.temperature = temperature
         self.topP = topP
         self.topK = topK
@@ -45,7 +47,10 @@ public func countChatTokens(
     caps: TemplateCaps
 ) -> Int {
     let contentText = messages.map { $0.content }.joined(separator: " ")
-    let toolText = tools?.map { "\($0.function["name"].flatMap { if case .string(let n) = $0 { return n } else { return nil } } ?? "")" }.joined(separator: " ") ?? ""
+    let toolText =
+        tools?.map {
+            "\($0.function["name"].flatMap { if case .string(let n) = $0 { return n } else { return nil } } ?? "")"
+        }.joined(separator: " ") ?? ""
     let allText = contentText + " " + toolText
     return max(1, allText.count / 4)
 }

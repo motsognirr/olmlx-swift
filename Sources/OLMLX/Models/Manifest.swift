@@ -1,5 +1,5 @@
-import Foundation
 import CryptoKit
+import Foundation
 
 public struct ModelManifest: Codable, Sendable {
     public var name: String
@@ -20,9 +20,11 @@ public struct ModelManifest: Codable, Sendable {
         case quantizationLevel = "quantization_level"
     }
 
-    public init(name: String, hfPath: String, size: Int = 0, modifiedAt: String = "",
-                digest: String = "", format: String = "mlx", family: String = "",
-                parameterSize: String = "", quantizationLevel: String = "") {
+    public init(
+        name: String, hfPath: String, size: Int = 0, modifiedAt: String = "",
+        digest: String = "", format: String = "mlx", family: String = "",
+        parameterSize: String = "", quantizationLevel: String = ""
+    ) {
         self.name = name
         self.hfPath = hfPath
         self.size = size

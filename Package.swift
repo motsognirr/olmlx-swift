@@ -5,7 +5,7 @@ import PackageDescription
 let package = Package(
     name: "olmlx-swift",
     platforms: [
-        .macOS(.v14),
+        .macOS(.v14)
     ],
     products: [
         .library(name: "OLMLX", targets: ["OLMLX"]),

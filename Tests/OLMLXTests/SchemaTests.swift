@@ -21,8 +21,8 @@ struct ChatSchemaTests {
 
     @Test func chatResponseRoundtrip() throws {
         let json = """
-        {"model":"test","created_at":"2024-01-01","message":{"role":"assistant","content":"hi"},"done":true}
-        """
+            {"model":"test","created_at":"2024-01-01","message":{"role":"assistant","content":"hi"},"done":true}
+            """
         let data = json.data(using: .utf8)!
         let resp = try JSONDecoder().decode(ChatResponse.self, from: data)
         #expect(resp.model == "test")
@@ -49,8 +49,8 @@ struct GenerateSchemaTests {
 
     @Test func generateResponseRoundtrip() throws {
         let json = """
-        {"model":"test","created_at":"2024-01-01","response":"hi","done":true}
-        """
+            {"model":"test","created_at":"2024-01-01","response":"hi","done":true}
+            """
         let data = json.data(using: .utf8)!
         let resp = try JSONDecoder().decode(GenerateResponse.self, from: data)
         #expect(resp.model == "test")
@@ -96,8 +96,8 @@ struct EmbedSchemaTests {
 struct OpenAISchemaTests {
     @Test func chatRequestRoundtrip() throws {
         let json = """
-        {"model":"test","messages":[{"role":"user","content":"hi"}],"stream":true}
-        """
+            {"model":"test","messages":[{"role":"user","content":"hi"}],"stream":true}
+            """
         let data = json.data(using: .utf8)!
         let req = try JSONDecoder().decode(OpenAIChatRequest.self, from: data)
         #expect(req.model == "test")
@@ -109,7 +109,7 @@ struct OpenAISchemaTests {
     @Test func responseFormat() throws {
         let schema: [String: AnyCodable] = [
             "name": .string("test_schema"),
-            "schema": .dictionary(["type": .string("object")])
+            "schema": .dictionary(["type": .string("object")]),
         ]
         let rf = try ResponseFormat(type: "json_schema", jsonSchema: schema)
         #expect(rf.type == "json_schema")
@@ -135,8 +135,8 @@ struct AnthropicSchemaTests {
 
     @Test func messagesRequest() throws {
         let json = """
-        {"model":"test","messages":[{"role":"user","content":"hi"}],"max_tokens":100}
-        """
+            {"model":"test","messages":[{"role":"user","content":"hi"}],"max_tokens":100}
+            """
         let data = json.data(using: .utf8)!
         let req = try JSONDecoder().decode(AnthropicMessagesRequest.self, from: data)
         #expect(req.model == "test")
@@ -156,8 +156,8 @@ struct ModelsSchemaTests {
 
     @Test func modelInfoRoundtrip() throws {
         let json = """
-        {"name":"llama2","model":"llama2:latest","size":1000,"digest":"abc123"}
-        """
+            {"name":"llama2","model":"llama2:latest","size":1000,"digest":"abc123"}
+            """
         let data = json.data(using: .utf8)!
         let info = try JSONDecoder().decode(ModelInfo.self, from: data)
         #expect(info.name == "llama2")
@@ -194,8 +194,8 @@ struct ModelsSchemaTests {
 
     @Test func modelOptionsCodable() throws {
         let json = """
-        {"temperature":0.7,"top_p":0.9,"seed":42}
-        """
+            {"temperature":0.7,"top_p":0.9,"seed":42}
+            """
         let data = json.data(using: .utf8)!
         let opts = try JSONDecoder().decode(ModelOptions.self, from: data)
         #expect(opts.temperature == 0.7)

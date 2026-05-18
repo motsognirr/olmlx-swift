@@ -12,8 +12,10 @@ public struct EmbedRequest: Codable, Sendable {
         case keepAlive = "keep_alive"
     }
 
-    public init(model: String, input: EmbedInput, truncate: Bool = true,
-                options: [String: AnyCodable]? = nil, keepAlive: String? = nil) throws {
+    public init(
+        model: String, input: EmbedInput, truncate: Bool = true,
+        options: [String: AnyCodable]? = nil, keepAlive: String? = nil
+    ) throws {
         switch input {
         case .string(let s):
             try validateNonEmptyTextInput(s, fieldName: "input")
@@ -40,10 +42,12 @@ public enum EmbedInput: Codable, Sendable {
         } else if let a = try? container.decode([String].self) {
             self = .array(a)
         } else {
-            throw DecodingError.typeMismatch(EmbedInput.self, DecodingError.Context(
-                codingPath: decoder.codingPath,
-                debugDescription: "Expected String or [String]"
-            ))
+            throw DecodingError.typeMismatch(
+                EmbedInput.self,
+                DecodingError.Context(
+                    codingPath: decoder.codingPath,
+                    debugDescription: "Expected String or [String]"
+                ))
         }
     }
 
@@ -82,8 +86,10 @@ public struct EmbeddingsRequest: Codable, Sendable {
         case keepAlive = "keep_alive"
     }
 
-    public init(model: String, prompt: String, options: [String: AnyCodable]? = nil,
-                keepAlive: String? = nil) throws {
+    public init(
+        model: String, prompt: String, options: [String: AnyCodable]? = nil,
+        keepAlive: String? = nil
+    ) throws {
         try validateNonEmptyTextInput(prompt, fieldName: "prompt")
         self.model = model
         self.prompt = prompt

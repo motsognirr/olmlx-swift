@@ -1,6 +1,6 @@
-import Vapor
 import Foundation
 import MLXLMCommon
+import Vapor
 
 public func createApp(registry: ModelRegistry, store: ModelStore, manager: ModelManager) throws -> Application {
     var env = try Environment.detect()
@@ -20,8 +20,8 @@ public func createApp(registry: ModelRegistry, store: ModelStore, manager: Model
     app.middleware.use(RequestIDMiddleware())
 
     // Ollama API
-    app.get { req -> String in "Ollama is running" }
-    app.get("api", "version") { req -> VersionResponse in
+    app.get { _ -> String in "Ollama is running" }
+    app.get("api", "version") { _ -> VersionResponse in
         VersionResponse(version: "0.1.0")
     }
     app.get("api", "tags") { req async throws -> TagsResponse in
@@ -120,10 +120,10 @@ public func createApp(registry: ModelRegistry, store: ModelStore, manager: Model
         let body = try req.content.decode(EmbedRequest.self)
         return EmbedResponse(model: body.model, embeddings: [[0.1, 0.2, 0.3]])
     }
-    app.on(.POST, "api", "embeddings") { req async throws -> EmbeddingsResponse in
+    app.on(.POST, "api", "embeddings") { _ async throws -> EmbeddingsResponse in
         return EmbeddingsResponse(embedding: [0.1, 0.2, 0.3])
     }
-    app.on(.POST, "api", "pull") { req async throws -> PullResponse in
+    app.on(.POST, "api", "pull") { _ async throws -> PullResponse in
         return PullResponse(status: "not implemented", digest: nil, total: nil, completed: nil)
     }
     app.on(.POST, "api", "copy") { _ -> HTTPStatus in .ok }
@@ -294,7 +294,7 @@ public func createApp(registry: ModelRegistry, store: ModelStore, manager: Model
             )
         )
     }
-    app.on(.POST, "v1", "messages", "count_tokens") { req -> AnthropicTokenCountResponse in
+    app.on(.POST, "v1", "messages", "count_tokens") { _ -> AnthropicTokenCountResponse in
         return AnthropicTokenCountResponse(inputTokens: 10)
     }
 
@@ -348,7 +348,8 @@ private func streamingChatResponse(
                             done: false
                         )
                         if let data = try? encoder.encode(msg),
-                           let json = String(data: data, encoding: .utf8) {
+                            let json = String(data: data, encoding: .utf8)
+                        {
                             _ = writer.write(.buffer(.init(string: json + "\n")))
                         }
                     },
@@ -364,7 +365,8 @@ private func streamingChatResponse(
                             evalCount: info?.generationTokenCount
                         )
                         if let data = try? encoder.encode(msg),
-                           let json = String(data: data, encoding: .utf8) {
+                            let json = String(data: data, encoding: .utf8)
+                        {
                             _ = writer.write(.buffer(.init(string: json + "\n")))
                         }
                         _ = writer.write(.end)
@@ -379,7 +381,8 @@ private func streamingChatResponse(
                     doneReason: "error"
                 )
                 if let data = try? encoder.encode(errMsg),
-                   let json = String(data: data, encoding: .utf8) {
+                    let json = String(data: data, encoding: .utf8)
+                {
                     _ = writer.write(.buffer(.init(string: json + "\n")))
                 }
                 _ = writer.write(.end)
@@ -406,7 +409,8 @@ private func chatFallbackResponse(model: String, stream: Bool, from lm: LoadedMo
                     doneReason: "stop"
                 )
                 if let data = try? encoder.encode(msg),
-                   let json = String(data: data, encoding: .utf8) {
+                    let json = String(data: data, encoding: .utf8)
+                {
                     _ = writer.write(.buffer(.init(string: json + "\n")))
                 }
                 _ = writer.write(.end)
@@ -442,7 +446,8 @@ private func generateFallbackResponse(model: String, stream: Bool, from lm: Load
                     doneReason: "stop"
                 )
                 if let data = try? encoder.encode(msg),
-                   let json = String(data: data, encoding: .utf8) {
+                    let json = String(data: data, encoding: .utf8)
+                {
                     _ = writer.write(.buffer(.init(string: json + "\n")))
                 }
                 _ = writer.write(.end)

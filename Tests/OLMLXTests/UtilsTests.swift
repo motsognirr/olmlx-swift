@@ -16,9 +16,10 @@ struct UtilsTests {
     }
 
     @Test func timingStatsToDict() {
-        let stats = TimingStats(totalDuration: 100, loadDuration: 10,
-                                promptEvalCount: 5, promptEvalDuration: 20,
-                                evalCount: 50, evalDuration: 70)
+        let stats = TimingStats(
+            totalDuration: 100, loadDuration: 10,
+            promptEvalCount: 5, promptEvalDuration: 20,
+            evalCount: 50, evalDuration: 70)
         let dict = stats.toDict()
         #expect(dict["total_duration"] == 100)
         #expect(dict["load_duration"] == 10)
@@ -39,16 +40,18 @@ struct UtilsTests {
     }
 
     @Test func streamTokenDefaults() {
-        let tok = StreamToken(text: "hi", promptTokens: 5, generationTokens: 1,
-                              promptTps: 100.0, generationTps: 50.0)
+        let tok = StreamToken(
+            text: "hi", promptTokens: 5, generationTokens: 1,
+            promptTps: 100.0, generationTps: 50.0)
         #expect(tok.text == "hi")
         #expect(tok.token == nil)
         #expect(tok.finishReason == nil)
     }
 
     @Test func streamTokenWithFinishReason() {
-        let tok = StreamToken(text: "", token: nil, promptTokens: 5, generationTokens: 10,
-                              promptTps: 100.0, generationTps: 50.0, finishReason: "stop")
+        let tok = StreamToken(
+            text: "", token: nil, promptTokens: 5, generationTokens: 10,
+            promptTps: 100.0, generationTps: 50.0, finishReason: "stop")
         #expect(tok.finishReason == "stop")
     }
 
