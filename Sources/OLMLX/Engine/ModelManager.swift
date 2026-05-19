@@ -114,6 +114,7 @@ public actor ModelManager {
     public let store: ModelStore
     public nonisolated let settings: Settings
     private var loadedModels: [String: LoadedModel] = [:]
+    private var loadedDraftModels: [String: ModelContainer] = [:]
     private let maxLoaded: Int
     public let promptCache: PromptCacheStore
     public private(set) var inferenceEngine: (any InferenceEngineProtocol)?
@@ -187,6 +188,35 @@ public actor ModelManager {
 
     public func unload(name: String) {
         loadedModels.removeValue(forKey: ModelRegistry.normalizeName(name))
+    }
+
+    /// Loads (and caches) a draft model container by its HuggingFace path.
+    ///
+    /// Draft models are tracked separately from the main `loadedModels` table so a
+    /// speculative-decoding request does not count against `maxLoadedModels` and
+    /// does not evict the main model it pairs with. Subsequent calls with the same
+    /// `hfPath` return the cached container.
+    public func ensureDraftLoaded(hfPath: String) async throws -> ModelContainer {
+        if let container = loadedDraftModels[hfPath] {
+            return container
+        }
+        guard let engine = inferenceEngine else {
+            throw ModelLoadError.inferenceError(
+                "no inference engine configured for draft model \(hfPath)")
+        }
+        let localPath = try await store.ensureDownloaded(hfPath: hfPath)
+        do {
+            let container = try await engine.loadModel(from: localPath)
+            loadedDraftModels[hfPath] = container
+            return container
+        } catch {
+            throw ModelLoadError.inferenceError(
+                "Failed to load draft MLX model \(hfPath): \(error)")
+        }
+    }
+
+    public func unloadDraft(hfPath: String) {
+        loadedDraftModels.removeValue(forKey: hfPath)
     }
 
     public func invalidatePromptCache(for model: String) async {

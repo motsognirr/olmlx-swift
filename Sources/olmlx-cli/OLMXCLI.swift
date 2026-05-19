@@ -38,6 +38,13 @@ struct Serve: AsyncParsableCommand {
     var kvCacheQuant: String?
 
     mutating func run() async throws {
+        // CLI flags override env. We translate the flag back into OLMLX_SPECULATIVE
+        // so `Settings()` (which reads env exclusively) picks it up. Without this,
+        // `--speculative` was parsed and then ignored.
+        if speculative {
+            setenv("OLMLX_SPECULATIVE", "true", 1)
+        }
+
         let settings = Settings()
         let hostStr = host ?? settings.host
         let portNum = port ?? settings.port

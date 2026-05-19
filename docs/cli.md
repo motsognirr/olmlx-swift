@@ -45,11 +45,11 @@ olmlx serve [--host HOST] [--port PORT]
 | --- | --- | --- | --- |
 | `--host` | string | `0.0.0.0` (or `OLMLX_HOST`) | Address to bind |
 | `--port` | int | `11434` (or `OLMLX_PORT`) | Port to listen on |
-| `--speculative` | flag | off | **Declared but not yet applied** — `Serve.run()` never reads this flag. Set `OLMLX_SPECULATIVE=true` instead. |
+| `--speculative` | flag | off | Enables speculative decoding (equivalent to `OLMLX_SPECULATIVE=true`). Requires a draft model — set `OLMLX_SPECULATIVE_DRAFT_MODEL` or `speculative_draft_model` in `models.json`. |
 | `--kv-cache-quant` | string | none | **Declared but not yet applied** — `Serve.run()` never reads this flag. Set `OLMLX_KV_CACHE_QUANT` (e.g. `affine:4`) instead. |
 
-Only `--host` and `--port` currently override the corresponding `OLMLX_*`
-environment variables. The other flags are parsed by ArgumentParser but
+`--host`, `--port`, and `--speculative` override the corresponding `OLMLX_*`
+environment variables. `--kv-cache-quant` is parsed by ArgumentParser but
 ignored by the run loop until the dispatch is wired up.
 
 ### Behavior

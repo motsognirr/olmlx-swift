@@ -55,11 +55,16 @@ public func buildInferenceOptions(from requestOptions: ModelOptions?) -> Inferen
     return InferenceOptions.from(requestOptions)
 }
 
-public enum InferenceError: Error, Sendable {
+public enum InferenceError: Error, Sendable, Equatable {
     case modelNotLoaded(String)
     case generationFailed(String)
     case embeddingFailed(String)
     case tokenizationFailed(String)
+    /// Speculative decoding was requested with a strategy the engine cannot run
+    /// (currently anything other than `.classic`). Carries the strategy name for diagnostics.
+    case unsupportedSpeculativeStrategy(String)
+    /// Speculative decoding was enabled but no draft model HF path was configured.
+    case speculativeDraftModelMissing
 }
 
 public struct TokenizeResult: Sendable {

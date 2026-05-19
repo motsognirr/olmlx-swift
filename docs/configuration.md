@@ -106,12 +106,23 @@ for the same output.
 | Variable | Default | Description |
 | --- | --- | --- |
 | `OLMLX_SPECULATIVE` | `false` | Enable speculative decoding |
-| `OLMLX_SPECULATIVE_STRATEGY` | `classic` | One of `classic`, `dflash`, `eagle` |
+| `OLMLX_SPECULATIVE_STRATEGY` | `classic` | Only `classic` is implemented; `dflash` and `eagle` are reserved and currently rejected at request time. |
 | `OLMLX_SPECULATIVE_DRAFT_MODEL` | none | HF path of the draft model |
-| `OLMLX_SPECULATIVE_TOKENS` | none | Lookahead window size (tokens) |
+| `OLMLX_SPECULATIVE_TOKENS` | `2` | Lookahead window size (tokens). Values below 1 are clamped. |
 
 These are global defaults; each model in `models.json` may override them on a
 per-model basis. See [Model Management](models.md#per-model-config).
+
+When enabled, every request through `/api/chat`, `/api/generate`,
+`/v1/chat/completions`, and `/v1/messages` loads the configured draft model on
+demand (cached for subsequent requests) and runs MLX's classic speculative
+loop: the draft proposes N tokens, the main model verifies in one pass, and
+matching prefixes are accepted. Prompt caching is bypassed in this mode — the
+speculative iterator manages its own main + draft KV caches per request.
+
+A request with speculative decoding enabled but no `speculative_draft_model`
+configured returns a 500 with `InferenceError.speculativeDraftModelMissing`.
+Requesting `dflash` or `eagle` returns `InferenceError.unsupportedSpeculativeStrategy`.
 
 ## Where defaults come from
 
