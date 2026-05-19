@@ -330,6 +330,17 @@ final class UncheckedSendableRef<T>: @unchecked Sendable {
     init(_ value: T) { self.value = value }
 }
 
+/// Returns `true` when every slot in `cache` reports `isTrimmable`. MLX's
+/// `SpeculativeTokenIterator.init` requires this before it will start, so the
+/// generation runners use it to detect main models whose architecture cannot
+/// participate in speculative decoding (hybrid SSM/transformer families like
+/// Qwen3.5 / FalconH1 / BaichuanM1 / Qwen3-Next emit `MambaCache` slots that
+/// are not trimmable). Thin wrapper around MLX's `canTrimPromptCache` so call
+/// sites stay decoupled from the underlying name.
+public func cacheSupportsSpeculative(_ cache: [KVCache]) -> Bool {
+    canTrimPromptCache(cache)
+}
+
 /// Builds a ``SpeculativeRuntime`` from the resolved ``SpeculativeConfig``.
 ///
 /// Returns `nil` when speculative decoding is disabled. Throws
@@ -358,6 +369,34 @@ public func makeSpeculativeRuntime(
     return SpeculativeRuntime(draftContainer: container, numDraftTokens: numTokens)
 }
 
+/// Probes the main model and clears `speculative` when its cache architecture
+/// can't participate in speculative decoding.
+///
+/// MLX's `SpeculativeTokenIterator` rejects non-trimmable caches at init time,
+/// which fatally fails the request for hybrid SSM/transformer models (Qwen3.5,
+/// FalconH1, BaichuanM1, Qwen3-Next, …) whose `newCache(parameters:)` returns
+/// `MambaCache` slots. Rather than surface the cryptic error per request, we
+/// build a fresh cache once, run it through ``cacheSupportsSpeculative(_:)``,
+/// and on miss log a single warning and fall back to non-speculative decoding
+/// so the model still answers. Allocating a fresh cache is cheap — no MLX
+/// compute happens until first update.
+func resolveSpeculativeForRequest(
+    container: ModelContainer,
+    parameters: GenerateParameters,
+    speculative: SpeculativeRuntime?
+) async -> SpeculativeRuntime? {
+    guard let speculative else { return nil }
+    let supported = await container.perform { context in
+        cacheSupportsSpeculative(context.model.newCache(parameters: parameters))
+    }
+    if supported { return speculative }
+    FileHandle.standardError.write(
+        Data(
+            "warning: main model produced a non-trimmable KV cache (hybrid SSM/transformer architecture is incompatible with speculative decoding); falling back to standard generation for this request\n"
+                .utf8))
+    return nil
+}
+
 // MARK: - Generation Runners
 
 /// Runs generation via a ``ModelContainer`` and collects the full response.
@@ -374,11 +413,13 @@ public func runGeneration(
     promptCache: PromptCacheBinding? = nil,
     speculative: SpeculativeRuntime? = nil
 ) async throws -> (text: String, info: GenerateCompletionInfo?) {
-    if let speculative {
+    let effectiveSpeculative = await resolveSpeculativeForRequest(
+        container: container, parameters: parameters, speculative: speculative)
+    if let effectiveSpeculative {
         return try await runSpeculativeGeneration(
             container: container,
             messages: messages, tools: tools,
-            parameters: parameters, speculative: speculative,
+            parameters: parameters, speculative: effectiveSpeculative,
             collect: true
         )
     }
@@ -444,11 +485,13 @@ public func runStreamingGeneration(
     promptCache: PromptCacheBinding? = nil,
     speculative: SpeculativeRuntime? = nil
 ) async throws {
-    if let speculative {
+    let effectiveSpeculative = await resolveSpeculativeForRequest(
+        container: container, parameters: parameters, speculative: speculative)
+    if let effectiveSpeculative {
         _ = try await runSpeculativeGeneration(
             container: container,
             messages: messages, tools: tools,
-            parameters: parameters, speculative: speculative,
+            parameters: parameters, speculative: effectiveSpeculative,
             collect: false,
             onChunk: onChunk, onComplete: onComplete
         )

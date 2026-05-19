@@ -1,4 +1,5 @@
 import Foundation
+import MLXLMCommon
 import Testing
 
 @testable import OLMLX
@@ -215,6 +216,32 @@ struct SpeculativeResolutionTests {
         await #expect(throws: (any Error).self) {
             _ = try await makeSpeculativeRuntime(manager: manager, config: spec)
         }
+    }
+
+    @Test func standardKVCacheIsSpeculativeCompatible() {
+        let cache: [KVCache] = [KVCacheSimple(), KVCacheSimple()]
+        #expect(cacheSupportsSpeculative(cache))
+    }
+
+    @Test func mambaCacheBlocksSpeculative() {
+        // Hybrid SSM/transformer models like Qwen3.5 mix MambaCache (non-trimmable)
+        // with KVCacheSimple slots. Speculative decoding can't run against any
+        // configuration with a non-trimmable slot.
+        let cache: [KVCache] = [MambaCache(), KVCacheSimple()]
+        #expect(!cacheSupportsSpeculative(cache))
+    }
+
+    @Test func cacheListWithMambaBlocksSpeculative() {
+        // FalconH1 / BaichuanM1 wrap a MambaCache inside a CacheList; the
+        // composite reports non-trimmable because one child is.
+        let cache: [KVCache] = [CacheList(MambaCache(), KVCacheSimple())]
+        #expect(!cacheSupportsSpeculative(cache))
+    }
+
+    @Test func emptyCacheIsCompatible() {
+        // `canTrimPromptCache([])` returns true via `allSatisfy`; documents the
+        // edge case so a refactor that changes the predicate notices.
+        #expect(cacheSupportsSpeculative([]))
     }
 
     @Test func numTokensClampedAboveZero() {
