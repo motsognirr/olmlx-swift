@@ -516,11 +516,9 @@ func runSpeculativeGeneration(
     onComplete: (@Sendable (GenerateCompletionInfo?) -> Void)? = nil
 ) async throws -> (text: String, info: GenerateCompletionInfo?) {
     let numDraftTokens = speculative.numDraftTokens
-    return try await speculative.draftContainer.perform {
-        draftContext -> (String, GenerateCompletionInfo?) in
+    return try await speculative.draftContainer.perform { draftContext -> (String, GenerateCompletionInfo?) in
         let draftModelRef = UncheckedSendableRef<any LanguageModel>(draftContext.model)
-        return try await mainContainer.perform {
-            mainContext -> (String, GenerateCompletionInfo?) in
+        return try await mainContainer.perform { mainContext -> (String, GenerateCompletionInfo?) in
             let tokenIds = try mainContext.tokenizer.applyChatTemplate(
                 messages: messages, tools: tools, additionalContext: nil)
 
