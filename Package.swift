@@ -9,6 +9,7 @@ let package = Package(
     ],
     products: [
         .library(name: "OLMLX", targets: ["OLMLX"]),
+        .library(name: "OLMLXBench", targets: ["OLMLXBench"]),
         .executable(name: "olmlx", targets: ["olmlx-cli"]),
     ],
     dependencies: [
@@ -41,11 +42,21 @@ let package = Package(
             dependencies: ["OLMLX"],
             path: "Tests/OLMLXTests"
         ),
+        .target(
+            name: "OLMLXBench",
+            dependencies: [
+                "OLMLX",
+                .product(name: "ArgumentParser", package: "swift-argument-parser"),
+                .product(name: "MLXLMCommon", package: "mlx-swift-lm"),
+            ]
+        ),
         .executableTarget(
             name: "olmlx-cli",
             dependencies: [
                 "OLMLX",
+                "OLMLXBench",
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
+                .product(name: "MLXLMCommon", package: "mlx-swift-lm"),
             ]
         ),
     ]

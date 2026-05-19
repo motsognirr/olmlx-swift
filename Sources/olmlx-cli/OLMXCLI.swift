@@ -1,6 +1,7 @@
 import ArgumentParser
 import Foundation
 import OLMLX
+import OLMLXBench
 
 @main
 struct OLMXCLI: AsyncParsableCommand {
@@ -201,25 +202,31 @@ struct Bench: ParsableCommand {
     )
 }
 
-struct BenchRun: ParsableCommand {
+struct BenchRun: AsyncParsableCommand {
     static let configuration = CommandConfiguration(abstract: "Run a benchmark")
 
     @Option(name: .long, help: "Model to benchmark")
-    var model: String?
+    var model: String = ""
 
-    @Option(name: .long, help: "Maximum tokens")
-    var maxTokens: Int = 128
+    @Option(name: .long, help: "Maximum tokens per prompt")
+    var maxTokens: Int = 512
 
-    mutating func run() throws {
-        print("Benchmark not fully implemented yet")
+    @Option(name: .long, help: "Output directory for benchmark artifacts")
+    var outputDir: String?
+
+    mutating func run() async throws {
+        try await BenchCommands.run(model: model, maxTokens: maxTokens, outputDir: outputDir)
     }
 }
 
-struct BenchList: ParsableCommand {
+struct BenchList: AsyncParsableCommand {
     static let configuration = CommandConfiguration(abstract: "List benchmark results")
 
-    mutating func run() throws {
-        print("No benchmark results yet")
+    @Option(name: .long, help: "Benchmark runs directory")
+    var runsDir: String?
+
+    mutating func run() async throws {
+        try await BenchCommands.list(runsDir: runsDir)
     }
 }
 
