@@ -34,11 +34,13 @@ extension Application {
                 return dict
             }
 
+            let cacheBinding = makePromptCacheBinding(manager: manager, modelName: body.model)
             let (text, info) = try await runGeneration(
                 container: container,
                 messages: rawMessages,
                 tools: nil,
-                parameters: params
+                parameters: params,
+                promptCache: cacheBinding
             )
 
             return AnthropicMessagesResponse(
