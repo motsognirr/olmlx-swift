@@ -2,15 +2,32 @@ import Foundation
 import MLXLMCommon
 import Vapor
 
+/// Resolves the per-request speculative-decoding runtime for `model`.
+///
+/// Pulls the resolved ``SpeculativeConfig`` from the model's `ModelConfig` and
+/// the global ``Settings`` and hands it to ``makeSpeculativeRuntime(manager:config:)``,
+/// which loads the draft container on demand. Returns `nil` when speculative
+/// decoding is disabled. Surface-level errors (unsupported strategy, missing
+/// draft model) propagate out as 500s via Vapor's default handler — route
+/// callers are expected to let them bubble up.
+func resolveSpeculative(
+    manager: ModelManager,
+    model: LoadedModel
+) async throws -> SpeculativeRuntime? {
+    let spec = model.config.resolvedSpeculative(global: manager.settings)
+    return try await makeSpeculativeRuntime(manager: manager, config: spec)
+}
+
 func fullChatResponse(
     modelName: String, container: ModelContainer,
     messages: [[String: any Sendable]], tools: [[String: any Sendable]]?,
     parameters: GenerateParameters,
-    promptCache: PromptCacheBinding? = nil
+    promptCache: PromptCacheBinding? = nil,
+    speculative: SpeculativeRuntime? = nil
 ) async throws -> Response {
     let (text, info) = try await runGeneration(
         container: container, messages: messages, tools: tools, parameters: parameters,
-        promptCache: promptCache)
+        promptCache: promptCache, speculative: speculative)
 
     let msg = ChatResponse(
         model: modelName,
@@ -33,7 +50,8 @@ func streamingChatResponse(
     modelName: String, container: ModelContainer,
     messages: [[String: any Sendable]], tools: [[String: any Sendable]]?,
     parameters: GenerateParameters,
-    promptCache: PromptCacheBinding? = nil
+    promptCache: PromptCacheBinding? = nil,
+    speculative: SpeculativeRuntime? = nil
 ) -> Response {
     let response = Response(status: .ok)
     response.headers.contentType = .init(type: "application", subType: "x-ndjson")
@@ -77,7 +95,8 @@ func streamingChatResponse(
                         }
                         _ = writer.write(.end)
                     },
-                    promptCache: promptCache
+                    promptCache: promptCache,
+                    speculative: speculative
                 )
             } catch {
                 let errMsg = ChatResponse(

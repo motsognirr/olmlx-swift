@@ -35,12 +35,14 @@ extension Application {
             }
 
             let cacheBinding = makePromptCacheBinding(manager: manager, modelName: body.model)
+            let speculative = try await resolveSpeculative(manager: manager, model: model)
             let (text, info) = try await runGeneration(
                 container: container,
                 messages: rawMessages,
                 tools: nil,
                 parameters: params,
-                promptCache: cacheBinding
+                promptCache: cacheBinding,
+                speculative: speculative
             )
 
             return AnthropicMessagesResponse(

@@ -69,17 +69,18 @@ extension Application {
             let rawMessages = messagesToRaw(body.messages)
             let rawTools = toolsToRaw(body.tools)
             let cacheBinding = makePromptCacheBinding(manager: manager, modelName: body.model)
+            let speculative = try await resolveSpeculative(manager: manager, model: model)
 
             if body.stream {
                 return streamingChatResponse(
                     modelName: body.model, container: container,
                     messages: rawMessages, tools: rawTools, parameters: params,
-                    promptCache: cacheBinding)
+                    promptCache: cacheBinding, speculative: speculative)
             } else {
                 return try await fullChatResponse(
                     modelName: body.model, container: container,
                     messages: rawMessages, tools: rawTools, parameters: params,
-                    promptCache: cacheBinding)
+                    promptCache: cacheBinding, speculative: speculative)
             }
         }
         on(.POST, "api", "generate") { req async throws -> Response in
@@ -97,17 +98,18 @@ extension Application {
                 ["role": "user", "content": body.prompt]
             ]
             let cacheBinding = makePromptCacheBinding(manager: manager, modelName: body.model)
+            let speculative = try await resolveSpeculative(manager: manager, model: model)
 
             if body.stream {
                 return streamingChatResponse(
                     modelName: body.model, container: container,
                     messages: rawMessages, tools: nil, parameters: params,
-                    promptCache: cacheBinding)
+                    promptCache: cacheBinding, speculative: speculative)
             } else {
                 return try await fullChatResponse(
                     modelName: body.model, container: container,
                     messages: rawMessages, tools: nil, parameters: params,
-                    promptCache: cacheBinding)
+                    promptCache: cacheBinding, speculative: speculative)
             }
         }
         on(.POST, "api", "embed") { _ async throws -> Response in
