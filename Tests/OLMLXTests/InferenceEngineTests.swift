@@ -1,4 +1,5 @@
 import Foundation
+import MLXLMCommon
 import Testing
 
 @testable import OLMLX
@@ -148,6 +149,38 @@ struct ModelManagerInferenceTests {
 
         let engine = await manager.inferenceEngine
         #expect(engine != nil)
+    }
+}
+
+@Suite("Load Error Wrapping")
+struct LoadErrorWrappingTests {
+    @Test func unsupportedModelTypeIsClassified() {
+        let upstream = ModelFactoryError.unsupportedModelType("minimax_m2")
+        let wrapped = wrapMLXLoadError(upstream, hfPath: "mlx-community/MiniMax-M2.7-5bit")
+        guard case .unsupportedArchitecture(let modelType, let hfPath) = wrapped else {
+            Issue.record("expected .unsupportedArchitecture, got \(wrapped)")
+            return
+        }
+        #expect(modelType == "minimax_m2")
+        #expect(hfPath == "mlx-community/MiniMax-M2.7-5bit")
+    }
+
+    @Test func otherErrorsFallThroughToInferenceError() {
+        struct Boom: Error {}
+        let wrapped = wrapMLXLoadError(Boom(), hfPath: "org/whatever")
+        guard case .inferenceError(let message) = wrapped else {
+            Issue.record("expected .inferenceError, got \(wrapped)")
+            return
+        }
+        #expect(message.contains("Failed to load MLX model"))
+    }
+
+    @Test func unsupportedArchitectureMessageMentionsModelTypeAndHfPath() {
+        let err = ModelLoadError.unsupportedArchitecture(
+            modelType: "step3p5", hfPath: "mlx-community/Step-3.5-Flash-6bit")
+        let message = "\(err.localizedDescription)"
+        #expect(message.contains("step3p5"))
+        #expect(message.contains("mlx-community/Step-3.5-Flash-6bit"))
     }
 }
 

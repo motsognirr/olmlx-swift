@@ -60,6 +60,44 @@ public enum ModelLoadError: Error, Sendable {
     case loadTimeout(String)
     case serverBusy
     case inferenceError(String)
+    /// The bundled mlx-swift-lm runtime doesn't have a model class registered for
+    /// the checkpoint's `model_type`. Surfaced separately from `inferenceError` so
+    /// callers (and humans reading logs) can distinguish "model is on disk, MLX
+    /// can't build it" from generic load failures. See issue #61 for context.
+    case unsupportedArchitecture(modelType: String, hfPath: String)
+}
+
+extension ModelLoadError: LocalizedError {
+    public var errorDescription: String? {
+        switch self {
+        case .notFound(let name):
+            return "Model not found: \(name)"
+        case .loadTimeout(let name):
+            return "Timed out loading model: \(name)"
+        case .serverBusy:
+            return "Server busy"
+        case .inferenceError(let message):
+            return message
+        case .unsupportedArchitecture(let modelType, let hfPath):
+            return
+                "Model architecture \"\(modelType)\" is not supported by the bundled mlx-swift-lm runtime "
+                + "(\(hfPath)). The checkpoint is present on disk but no Swift model class is registered "
+                + "for this model_type. Track architecture coverage in the olmlx-swift repo issues."
+        }
+    }
+}
+
+/// Classifies an error thrown by `MLXLMCommon.loadModelContainer` into a
+/// ``ModelLoadError``. `ModelFactoryError.unsupportedModelType` is the one case
+/// we can recognize structurally — everything else is opaque to us and falls
+/// through as `inferenceError`.
+public func wrapMLXLoadError(_ error: Error, hfPath: String) -> ModelLoadError {
+    if let factoryError = error as? ModelFactoryError,
+        case .unsupportedModelType(let modelType) = factoryError
+    {
+        return .unsupportedArchitecture(modelType: modelType, hfPath: hfPath)
+    }
+    return .inferenceError("Failed to load MLX model: \(error)")
 }
 
 public func parseKeepAlive(_ value: String) -> TimeInterval? {
@@ -179,7 +217,7 @@ public actor ModelManager {
                 let container = try await engine.loadModel(from: localPath)
                 model.container = container
             } catch {
-                throw ModelLoadError.inferenceError("Failed to load MLX model: \(error)")
+                throw wrapMLXLoadError(error, hfPath: config.hfPath)
             }
         }
 
@@ -230,8 +268,14 @@ public actor ModelManager {
             loadedDraftModels[hfPath] = container
             return container
         } catch {
-            throw ModelLoadError.inferenceError(
-                "Failed to load draft MLX model \(hfPath): \(error)")
+            let wrapped = wrapMLXLoadError(error, hfPath: hfPath)
+            // Draft loads add the "draft model" context to plain failures, but
+            // preserve `unsupportedArchitecture` so the model_type stays visible.
+            if case .inferenceError = wrapped {
+                throw ModelLoadError.inferenceError(
+                    "Failed to load draft MLX model \(hfPath): \(error)")
+            }
+            throw wrapped
         }
     }
 
