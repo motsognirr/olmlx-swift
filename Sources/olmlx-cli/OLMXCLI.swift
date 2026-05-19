@@ -1,5 +1,6 @@
 import ArgumentParser
 import Foundation
+import MLXLMCommon
 import OLMLX
 import OLMLXBench
 
@@ -161,7 +162,7 @@ struct ModelsSearch: AsyncParsableCommand {
     }
 }
 
-struct Chat: ParsableCommand {
+struct Chat: AsyncParsableCommand {
     static let configuration = CommandConfiguration(abstract: "Interactive terminal chat")
 
     @Argument(help: "Model name")
@@ -176,22 +177,136 @@ struct Chat: ParsableCommand {
     @Option(name: .long, help: "Temperature")
     var temperature: Double = 0.7
 
-    mutating func run() throws {
+    mutating func run() async throws {
+        let settings = Settings()
+        let registry = ModelRegistry(configPath: settings.modelsConfig)
+        try await registry.load()
+        let store = ModelStore(modelsDir: settings.modelsDir, registry: registry)
+        let engine = DefaultInferenceEngine()
+        let manager = ModelManager(
+            registry: registry,
+            store: store,
+            settings: settings,
+            inferenceEngine: engine
+        )
+
         print("olmlx chat with \(model)")
         print("Type /exit to quit, /help for commands")
         print("---")
 
+        let loaded: LoadedModel
+        do {
+            loaded = try await manager.ensureLoaded(name: model)
+        } catch {
+            print("Failed to load model '\(model)': \(error)")
+            return
+        }
+        guard let container = loaded.container else {
+            print("Model '\(model)' has no inference container; cannot chat.")
+            return
+        }
+
+        var systemPrompt: String? = system
+        var conversation: [OLMLX.Message] = []
+        if let sys = systemPrompt {
+            conversation.append(OLMLX.Message(role: "system", content: sys))
+        }
+
         while true {
             print("> ", terminator: "")
-            guard let input = readLine(), !input.isEmpty else { continue }
-            if input == "/exit" { break }
+            guard let raw = readLine() else {
+                print("")
+                break
+            }
+            let input = raw.trimmingCharacters(in: .whitespaces)
+            if input.isEmpty { continue }
+
+            if input == "/exit" || input == "/quit" { break }
             if input == "/help" {
                 print("Commands: /exit, /help, /clear, /system <prompt>")
                 continue
             }
+            if input == "/clear" {
+                conversation.removeAll()
+                if let sys = systemPrompt {
+                    conversation.append(OLMLX.Message(role: "system", content: sys))
+                }
+                await manager.invalidatePromptCache(for: model)
+                print("Conversation cleared.")
+                continue
+            }
+            if input == "/system" || input.hasPrefix("/system ") {
+                let newSys = String(input.dropFirst("/system".count))
+                    .trimmingCharacters(in: .whitespaces)
+                systemPrompt = newSys.isEmpty ? nil : newSys
+                conversation.removeAll()
+                if let sys = systemPrompt {
+                    conversation.append(OLMLX.Message(role: "system", content: sys))
+                    print("System prompt set; conversation cleared.")
+                } else {
+                    print("System prompt cleared; conversation cleared.")
+                }
+                await manager.invalidatePromptCache(for: model)
+                continue
+            }
+            if input.hasPrefix("/") {
+                print("Unknown command: \(input). Type /help for commands.")
+                continue
+            }
 
-            print("Assistant: [response from \(model)]")
+            conversation.append(OLMLX.Message(role: "user", content: input))
+
+            var params = mapToGenerateParameters(from: nil)
+            params.maxTokens = maxTokens
+            params.temperature = Float(temperature)
+            applyKVCacheQuant(
+                &params,
+                spec: loaded.config.resolvedKVCacheQuant(global: manager.settings)
+            )
+
+            let rawMessages = messagesToRaw(conversation)
+            let cacheBinding = makePromptCacheBinding(manager: manager, modelName: model)
+
+            print("Assistant: ", terminator: "")
+            let collector = ChatTextCollector()
+            do {
+                try await runStreamingGeneration(
+                    container: container,
+                    messages: rawMessages,
+                    tools: nil,
+                    parameters: params,
+                    onChunk: { text in
+                        collector.append(text)
+                        FileHandle.standardOutput.write(Data(text.utf8))
+                    },
+                    onComplete: { _ in },
+                    promptCache: cacheBinding
+                )
+            } catch {
+                print("\nError: \(error)")
+                conversation.removeLast()
+                continue
+            }
+            print("")
+            conversation.append(OLMLX.Message(role: "assistant", content: collector.text))
         }
+    }
+}
+
+final class ChatTextCollector: @unchecked Sendable {
+    private let lock = NSLock()
+    private var buffer = ""
+
+    func append(_ chunk: String) {
+        lock.lock()
+        buffer += chunk
+        lock.unlock()
+    }
+
+    var text: String {
+        lock.lock()
+        defer { lock.unlock() }
+        return buffer
     }
 }
 
