@@ -64,6 +64,7 @@ struct Serve: AsyncParsableCommand {
         )
 
         _ = manager.startExpiryChecker()
+        await manager.hydrateDiskCache()
 
         let app = try createApp(registry: registry, store: store, manager: manager, settings: settings)
 

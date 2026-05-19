@@ -118,6 +118,7 @@ public actor ModelManager {
     private let maxLoaded: Int
     public let promptCache: PromptCacheStore
     public private(set) var inferenceEngine: (any InferenceEngineProtocol)?
+    private let diskStore: PromptCacheDiskStore?
 
     public init(
         registry: ModelRegistry,
@@ -132,6 +133,20 @@ public actor ModelManager {
         self.maxLoaded = maxLoadedModels ?? settings.maxLoadedModels
         self.promptCache = PromptCacheStore(maxSlots: settings.promptCacheMaxSlots)
         self.inferenceEngine = inferenceEngine
+        if settings.promptCacheDisk {
+            self.diskStore = PromptCacheDiskStore(
+                baseURL: settings.promptCacheDiskPath, maxGB: settings.promptCacheDiskMaxGB)
+        } else {
+            self.diskStore = nil
+        }
+    }
+
+    public func hydrateDiskCache() async {
+        guard let diskStore else { return }
+        let entries = await diskStore.loadAll()
+        for (key, state) in entries {
+            await promptCache.set(key: key, state: state)
+        }
     }
 
     public func setInferenceEngine(_ engine: (any InferenceEngineProtocol)?) {
@@ -186,8 +201,13 @@ public actor ModelManager {
         return Array(loadedModels.values)
     }
 
-    public func unload(name: String) {
-        loadedModels.removeValue(forKey: ModelRegistry.normalizeName(name))
+    public func unload(name: String) async {
+        let key = ModelRegistry.normalizeName(name)
+        loadedModels.removeValue(forKey: key)
+        await promptCache.remove(key: key)
+        if let diskStore {
+            await diskStore.remove(key: key)
+        }
     }
 
     /// Loads (and caches) a draft model container by its HuggingFace path.
@@ -220,7 +240,11 @@ public actor ModelManager {
     }
 
     public func invalidatePromptCache(for model: String) async {
-        await promptCache.remove(key: ModelRegistry.normalizeName(model))
+        let key = ModelRegistry.normalizeName(model)
+        await promptCache.remove(key: key)
+        if let diskStore {
+            await diskStore.remove(key: key)
+        }
     }
 
     /// Atomically fetches and removes a cache slot so the caller has exclusive
@@ -239,6 +263,9 @@ public actor ModelManager {
     public func releasePromptCache(key: String, state: CachedPromptState?) async {
         if let state {
             await promptCache.set(key: key, state: state)
+            if let diskStore {
+                await diskStore.save(key: key, state: state)
+            }
         }
     }
 
