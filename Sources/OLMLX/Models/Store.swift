@@ -25,6 +25,24 @@ public final class ModelStore: Sendable {
         return modelsDir.appendingPathComponent(safeName)
     }
 
+    /// Returns an existing on-disk path for `hfPath`, accepting both the
+    /// current `namespace--name` directory layout and a legacy
+    /// `namespace_name` layout left by older versions of this tool. Returns
+    /// `nil` if neither directory is present.
+    private func existingLocalPath(for hfPath: String) -> URL? {
+        let canonical = localPath(for: hfPath)
+        if FileManager.default.fileExists(atPath: canonical.path) {
+            return canonical
+        }
+        let legacy = modelsDir.appendingPathComponent(
+            hfPath.replacingOccurrences(of: "/", with: "_")
+        )
+        if FileManager.default.fileExists(atPath: legacy.path) {
+            return legacy
+        }
+        return nil
+    }
+
     /// Returns the local snapshot path for `hfPath`, downloading from
     /// HuggingFace Hub if it is not already present on disk. Progress is
     /// reported via `progressHandler` if supplied.
@@ -35,10 +53,10 @@ public final class ModelStore: Sendable {
         hfPath: String,
         progressHandler: (@MainActor @Sendable (Progress) -> Void)? = nil
     ) async throws -> URL {
-        let path = localPath(for: hfPath)
-        if FileManager.default.fileExists(atPath: path.path) {
-            return path
+        if let existing = existingLocalPath(for: hfPath) {
+            return existing
         }
+        let path = localPath(for: hfPath)
         return try await download(hfPath: hfPath, to: path, progressHandler: progressHandler)
     }
 
