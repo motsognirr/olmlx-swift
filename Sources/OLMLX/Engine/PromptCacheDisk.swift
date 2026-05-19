@@ -86,7 +86,9 @@ actor PromptCacheDiskStore {
         var results: [(key: String, state: CachedPromptState)] = []
         for url in entries where url.hasDirectoryPath {
             let keyFile = url.appendingPathComponent("key.txt")
-            guard let originalKey = try? String(contentsOf: keyFile, encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines),
+            guard
+                let originalKey = try? String(contentsOf: keyFile, encoding: .utf8)
+                    .trimmingCharacters(in: .whitespacesAndNewlines),
                 !originalKey.isEmpty
             else {
                 continue
@@ -107,19 +109,27 @@ actor PromptCacheDiskStore {
         try? fileManager.removeItem(at: baseURL)
     }
 
+    private struct DiskEntry {
+        let url: URL
+        let size: UInt64
+        let date: Date
+    }
+
     private func evictIfNeeded() async {
-        guard let entries = try? fileManager.contentsOfDirectory(
-            at: baseURL, includingPropertiesForKeys: [.contentModificationDateKey])
+        guard
+            let entries = try? fileManager.contentsOfDirectory(
+                at: baseURL,
+                includingPropertiesForKeys: [.contentModificationDateKey])
         else { return }
 
         var totalSize: UInt64 = 0
-        var entryInfo: [(url: URL, size: UInt64, date: Date)] = []
+        var entryInfo: [DiskEntry] = []
 
         for url in entries where url.hasDirectoryPath {
             let size = directorySize(url)
             let date = modificationDate(url)
             totalSize += size
-            entryInfo.append((url, size, date))
+            entryInfo.append(DiskEntry(url: url, size: size, date: date))
         }
 
         guard totalSize > maxBytes else { return }
