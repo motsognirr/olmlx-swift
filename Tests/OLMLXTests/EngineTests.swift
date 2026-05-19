@@ -143,4 +143,39 @@ struct PromptCacheTests {
         #expect(await cache.get(key: "b") != nil)
         #expect(await cache.get(key: "c") != nil)
     }
+
+    @Test func longestCommonPrefixBasics() {
+        #expect(longestCommonPrefix([1, 2, 3], [1, 2, 3, 4]) == 3)
+        #expect(longestCommonPrefix([1, 2, 3, 4], [1, 2, 3]) == 3)
+        #expect(longestCommonPrefix([1, 2, 3], [1, 2, 9]) == 2)
+        #expect(longestCommonPrefix([], [1, 2]) == 0)
+        #expect(longestCommonPrefix([1, 2], []) == 0)
+        #expect(longestCommonPrefix([1, 2, 3], [9, 1, 2, 3]) == 0)
+    }
+
+    @Test func planReuseWithNoCachedStateFallsThrough() {
+        let plan = planPromptCacheReuse(cached: nil, newTokens: [1, 2, 3])
+        #expect(plan.cache == nil)
+        #expect(plan.prefillTokens == [1, 2, 3])
+        #expect(plan.reusedTokens == 0)
+    }
+
+    @Test func planReuseWithEmptyCacheFallsThrough() {
+        // CachedPromptState with nil cache is treated as a miss: caller allocates fresh.
+        let cached = CachedPromptState(tokens: [1, 2, 3], cache: nil)
+        let plan = planPromptCacheReuse(cached: cached, newTokens: [1, 2, 3, 4])
+        #expect(plan.cache == nil)
+        #expect(plan.prefillTokens == [1, 2, 3, 4])
+        #expect(plan.reusedTokens == 0)
+    }
+
+    @Test func acquireRemovesSlot() async {
+        let store = PromptCacheStore(maxSlots: 4)
+        await store.set(key: "k", state: CachedPromptState(tokens: [1]))
+        // direct fetch+remove simulates ModelManager.acquirePromptCache
+        let first = await store.get(key: "k")
+        await store.remove(key: "k")
+        #expect(first != nil)
+        #expect(await store.get(key: "k") == nil)
+    }
 }

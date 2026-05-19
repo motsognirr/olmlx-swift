@@ -28,14 +28,31 @@ public struct LoadedModel: Sendable {
     }
 }
 
-public struct CachedPromptState: Sendable {
+/// In-memory record for a model's prompt cache slot.
+///
+/// `tokens` is the full chat-templated prompt tokenization from the most recent
+/// generation (not including the generated continuation). `cache` is the MLX
+/// `[KVCache]` whose offset advances past `tokens` once the generated tokens
+/// have been appended during decoding — i.e. `cache[0].offset >= tokens.count`.
+///
+/// Holds non-`Sendable` `KVCache` instances; access is gated by `PromptCacheStore`'s
+/// actor isolation and by `ModelContainer.perform`'s serial access during use.
+public final class CachedPromptState: @unchecked Sendable {
     public var tokens: [Int]
-    public var cacheID: String?
+    public var cache: [KVCache]?
 
-    public init(tokens: [Int], cacheID: String? = nil) {
+    public init(tokens: [Int], cache: [KVCache]? = nil) {
         self.tokens = tokens
-        self.cacheID = cacheID
+        self.cache = cache
     }
+}
+
+/// Length of the longest shared prefix between two integer sequences.
+public func longestCommonPrefix(_ a: [Int], _ b: [Int]) -> Int {
+    let n = min(a.count, b.count)
+    var i = 0
+    while i < n && a[i] == b[i] { i += 1 }
+    return i
 }
 
 public enum ModelLoadError: Error, Sendable {
@@ -174,6 +191,25 @@ public actor ModelManager {
 
     public func invalidatePromptCache(for model: String) async {
         await promptCache.remove(key: ModelRegistry.normalizeName(model))
+    }
+
+    /// Atomically fetches and removes a cache slot so the caller has exclusive
+    /// access to the underlying `[KVCache]` while it mutates it. Pair with
+    /// ``releasePromptCache(key:state:)``.
+    public func acquirePromptCache(key: String) async -> CachedPromptState? {
+        let state = await promptCache.get(key: key)
+        if state != nil {
+            await promptCache.remove(key: key)
+        }
+        return state
+    }
+
+    /// Returns a (possibly updated) cache slot to the store, or drops it when
+    /// `state` is `nil` (e.g. the cache exceeded the configured token budget).
+    public func releasePromptCache(key: String, state: CachedPromptState?) async {
+        if let state {
+            await promptCache.set(key: key, state: state)
+        }
     }
 
     public nonisolated func startExpiryChecker() -> Task<Void, Never> {

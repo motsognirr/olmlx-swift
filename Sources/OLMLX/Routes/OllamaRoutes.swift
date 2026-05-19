@@ -68,15 +68,18 @@ extension Application {
             applyKVCacheQuant(&params, spec: model.config.resolvedKVCacheQuant(global: manager.settings))
             let rawMessages = messagesToRaw(body.messages)
             let rawTools = toolsToRaw(body.tools)
+            let cacheBinding = makePromptCacheBinding(manager: manager, modelName: body.model)
 
             if body.stream {
                 return streamingChatResponse(
                     modelName: body.model, container: container,
-                    messages: rawMessages, tools: rawTools, parameters: params)
+                    messages: rawMessages, tools: rawTools, parameters: params,
+                    promptCache: cacheBinding)
             } else {
                 return try await fullChatResponse(
                     modelName: body.model, container: container,
-                    messages: rawMessages, tools: rawTools, parameters: params)
+                    messages: rawMessages, tools: rawTools, parameters: params,
+                    promptCache: cacheBinding)
             }
         }
         on(.POST, "api", "generate") { req async throws -> Response in
@@ -93,15 +96,18 @@ extension Application {
             let rawMessages: [[String: any Sendable]] = [
                 ["role": "user", "content": body.prompt]
             ]
+            let cacheBinding = makePromptCacheBinding(manager: manager, modelName: body.model)
 
             if body.stream {
                 return streamingChatResponse(
                     modelName: body.model, container: container,
-                    messages: rawMessages, tools: nil, parameters: params)
+                    messages: rawMessages, tools: nil, parameters: params,
+                    promptCache: cacheBinding)
             } else {
                 return try await fullChatResponse(
                     modelName: body.model, container: container,
-                    messages: rawMessages, tools: nil, parameters: params)
+                    messages: rawMessages, tools: nil, parameters: params,
+                    promptCache: cacheBinding)
             }
         }
         on(.POST, "api", "embed") { _ async throws -> Response in

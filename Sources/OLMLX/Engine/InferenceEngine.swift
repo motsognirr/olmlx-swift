@@ -218,6 +218,90 @@ public final class MockInferenceEngine: InferenceEngineProtocol, @unchecked Send
     }
 }
 
+// MARK: - Prompt Cache Binding
+
+/// Per-request binding to a ``ModelManager``'s prompt cache.
+///
+/// Passed into ``runGeneration(container:messages:tools:parameters:promptCache:)`` and
+/// ``runStreamingGeneration(container:messages:tools:parameters:onChunk:onComplete:promptCache:)``
+/// so they can reuse / update the per-model KV cache without each route having to
+/// reach into the manager. `nil` disables prompt caching for that call.
+public struct PromptCacheBinding: Sendable {
+    public let manager: ModelManager
+    public let key: String
+    public let maxTokens: Int?
+
+    public init(manager: ModelManager, key: String, maxTokens: Int?) {
+        self.manager = manager
+        self.key = key
+        self.maxTokens = maxTokens
+    }
+}
+
+/// Builds a ``PromptCacheBinding`` honoring ``Settings/promptCache`` and
+/// ``Settings/promptCacheMaxTokens``. Returns `nil` when caching is disabled.
+public func makePromptCacheBinding(
+    manager: ModelManager, modelName: String
+) -> PromptCacheBinding? {
+    guard manager.settings.promptCache else { return nil }
+    return PromptCacheBinding(
+        manager: manager,
+        key: ModelRegistry.normalizeName(modelName),
+        maxTokens: manager.settings.promptCacheMaxTokens
+    )
+}
+
+/// Outcome of matching a new prompt against an existing cache slot.
+///
+/// `cache` is what to pass to MLX (`nil` => fresh cache will be allocated).
+/// `prefillTokens` is the slice of `tokenIds` that still needs to be fed in.
+struct PromptCacheReuse {
+    let cache: [KVCache]?
+    let prefillTokens: [Int]
+    let reusedTokens: Int
+}
+
+/// Decide how much of `cached` can be reused for `newTokens`.
+///
+/// On a hit, trims the cache in-place to the longest common prefix and returns
+/// only the remaining suffix as `prefillTokens`. On a miss, returns `nil` cache
+/// and the full prompt so the caller allocates a fresh KV cache.
+///
+/// The MLX prompt-prefill path requires at least one token to feed forward, so
+/// when `newTokens` is a strict prefix of `cached.tokens` we leave one token
+/// out of the trim to preserve a non-empty prefill.
+func planPromptCacheReuse(
+    cached: CachedPromptState?, newTokens: [Int]
+) -> PromptCacheReuse {
+    guard let cached, let cache = cached.cache, !cache.isEmpty,
+        canTrimPromptCache(cache)
+    else {
+        return PromptCacheReuse(cache: nil, prefillTokens: newTokens, reusedTokens: 0)
+    }
+
+    let common = longestCommonPrefix(cached.tokens, newTokens)
+    // We need to prefill at least one token, so cap reuse at newTokens.count - 1.
+    let reusable = min(common, max(0, newTokens.count - 1))
+    guard reusable > 0 else {
+        return PromptCacheReuse(cache: nil, prefillTokens: newTokens, reusedTokens: 0)
+    }
+
+    let currentOffset = cache[0].offset
+    let trim = currentOffset - reusable
+    guard trim >= 0 else {
+        // Cache offset is behind the prefix match — shouldn't happen, but bail safely.
+        return PromptCacheReuse(cache: nil, prefillTokens: newTokens, reusedTokens: 0)
+    }
+    if trim > 0 {
+        trimPromptCache(cache, numTokens: trim)
+    }
+    return PromptCacheReuse(
+        cache: cache,
+        prefillTokens: Array(newTokens[reusable...]),
+        reusedTokens: reusable
+    )
+}
+
 // MARK: - Generation Runners
 
 /// Runs generation via a ``ModelContainer`` and collects the full response.
@@ -225,13 +309,24 @@ public func runGeneration(
     container: ModelContainer,
     messages: [[String: any Sendable]],
     tools: [[String: any Sendable]]?,
-    parameters: GenerateParameters
+    parameters: GenerateParameters,
+    promptCache: PromptCacheBinding? = nil
 ) async throws -> (text: String, info: GenerateCompletionInfo?) {
     return try await container.perform { context -> (String, GenerateCompletionInfo?) in
         let tokenIds = try context.tokenizer.applyChatTemplate(
             messages: messages, tools: tools, additionalContext: nil)
 
-        let promptArray = MLXArray(tokenIds).asType(.int32)
+        let cached: CachedPromptState?
+        if let binding = promptCache {
+            cached = await binding.manager.acquirePromptCache(key: binding.key)
+        } else {
+            cached = nil
+        }
+        let reuse = planPromptCacheReuse(cached: cached, newTokens: tokenIds)
+        let kvCache: [KVCache] =
+            reuse.cache ?? context.model.newCache(parameters: parameters)
+
+        let promptArray = MLXArray(reuse.prefillTokens).asType(.int32)
         let mask = MLXArray.ones([promptArray.size]).asType(.bool)
         let input = LMInput(
             text: LMInput.Text(tokens: promptArray, mask: mask),
@@ -241,7 +336,7 @@ public func runGeneration(
         var completionInfo: GenerateCompletionInfo?
 
         let stream = try MLXLMCommon.generate(
-            input: input, parameters: parameters, context: context)
+            input: input, cache: kvCache, parameters: parameters, context: context)
         for await generation in stream {
             switch generation {
             case .chunk(let text):
@@ -251,6 +346,11 @@ public func runGeneration(
             case .toolCall:
                 break
             }
+        }
+
+        if let binding = promptCache {
+            await storePromptCacheSlot(
+                binding: binding, tokens: tokenIds, cache: kvCache)
         }
 
         return (fullText, completionInfo)
@@ -264,20 +364,31 @@ public func runStreamingGeneration(
     tools: [[String: any Sendable]]?,
     parameters: GenerateParameters,
     onChunk: @Sendable @escaping (String) -> Void,
-    onComplete: @Sendable @escaping (GenerateCompletionInfo?) -> Void
+    onComplete: @Sendable @escaping (GenerateCompletionInfo?) -> Void,
+    promptCache: PromptCacheBinding? = nil
 ) async throws {
     try await container.perform { context in
         let tokenIds = try context.tokenizer.applyChatTemplate(
             messages: messages, tools: tools, additionalContext: nil)
 
-        let promptArray = MLXArray(tokenIds).asType(.int32)
+        let cached: CachedPromptState?
+        if let binding = promptCache {
+            cached = await binding.manager.acquirePromptCache(key: binding.key)
+        } else {
+            cached = nil
+        }
+        let reuse = planPromptCacheReuse(cached: cached, newTokens: tokenIds)
+        let kvCache: [KVCache] =
+            reuse.cache ?? context.model.newCache(parameters: parameters)
+
+        let promptArray = MLXArray(reuse.prefillTokens).asType(.int32)
         let mask = MLXArray.ones([promptArray.size]).asType(.bool)
         let input = LMInput(
             text: LMInput.Text(tokens: promptArray, mask: mask),
             image: nil, video: nil)
 
         let stream = try MLXLMCommon.generate(
-            input: input, parameters: parameters, context: context)
+            input: input, cache: kvCache, parameters: parameters, context: context)
 
         for await generation in stream {
             switch generation {
@@ -289,5 +400,24 @@ public func runStreamingGeneration(
                 break
             }
         }
+
+        if let binding = promptCache {
+            await storePromptCacheSlot(
+                binding: binding, tokens: tokenIds, cache: kvCache)
+        }
     }
+}
+
+/// Either stores or evicts the post-generation cache, respecting the configured
+/// `promptCacheMaxTokens` ceiling.
+private func storePromptCacheSlot(
+    binding: PromptCacheBinding, tokens: [Int], cache: [KVCache]
+) async {
+    let offset = cache.first?.offset ?? tokens.count
+    if let cap = binding.maxTokens, offset > cap {
+        await binding.manager.releasePromptCache(key: binding.key, state: nil)
+        return
+    }
+    let state = CachedPromptState(tokens: tokens, cache: cache)
+    await binding.manager.releasePromptCache(key: binding.key, state: state)
 }
