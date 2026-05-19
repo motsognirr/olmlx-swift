@@ -39,7 +39,10 @@ let package = Package(
         ),
         .testTarget(
             name: "OLMLXTests",
-            dependencies: ["OLMLX"],
+            dependencies: [
+                "OLMLX",
+                .product(name: "MLXLMCommon", package: "mlx-swift-lm"),
+            ],
             path: "Tests/OLMLXTests"
         ),
         .target(
