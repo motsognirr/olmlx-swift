@@ -44,8 +44,12 @@ public final class ModelStore: Sendable {
     }
 
     /// Returns the local snapshot path for `hfPath`, downloading from
-    /// HuggingFace Hub if it is not already present on disk. Progress is
-    /// reported via `progressHandler` if supplied.
+    /// HuggingFace Hub if it is not already present on disk. A directory that
+    /// exists but is missing referenced weight shards (e.g. a previously
+    /// interrupted download that only completed the small metadata files) is
+    /// treated as incomplete and re-downloaded; otherwise model loading would
+    /// fail later with a confusing `keyNotFound` error against the model's
+    /// first parameter. Progress is reported via `progressHandler` if supplied.
     ///
     /// `hfPath` must be in `"namespace/name"` form. Throws
     /// `ModelStoreError.invalidHFPath` otherwise.
@@ -53,11 +57,42 @@ public final class ModelStore: Sendable {
         hfPath: String,
         progressHandler: (@MainActor @Sendable (Progress) -> Void)? = nil
     ) async throws -> URL {
-        if let existing = existingLocalPath(for: hfPath) {
+        if let existing = existingLocalPath(for: hfPath),
+            ModelStore.isSnapshotComplete(at: existing)
+        {
             return existing
         }
         let path = localPath(for: hfPath)
         return try await download(hfPath: hfPath, to: path, progressHandler: progressHandler)
+    }
+
+    /// Returns `true` if `directory` contains every safetensors shard
+    /// referenced by `model.safetensors.index.json`, or contains a
+    /// single-file `model.safetensors` when no index is present.
+    ///
+    /// When neither an index nor a single weight file exists we conclude
+    /// the snapshot is incomplete: a directory with only metadata is the
+    /// signature of a partial download.
+    static func isSnapshotComplete(at directory: URL) -> Bool {
+        let fm = FileManager.default
+        let indexURL = directory.appendingPathComponent("model.safetensors.index.json")
+        if fm.fileExists(atPath: indexURL.path) {
+            guard let data = try? Data(contentsOf: indexURL),
+                let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                let weightMap = json["weight_map"] as? [String: String]
+            else {
+                // Unreadable index — let the loader surface its own error
+                // rather than re-downloading an unknown state forever.
+                return true
+            }
+            let shards = Set(weightMap.values)
+            guard !shards.isEmpty else { return false }
+            return shards.allSatisfy {
+                fm.fileExists(atPath: directory.appendingPathComponent($0).path)
+            }
+        }
+        let single = directory.appendingPathComponent("model.safetensors")
+        return fm.fileExists(atPath: single.path)
     }
 
     /// Downloads the full snapshot of `hfPath` into `destination`, replacing

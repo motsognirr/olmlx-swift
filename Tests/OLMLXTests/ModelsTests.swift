@@ -140,4 +140,57 @@ struct ModelStoreTests {
             _ = try await store.download(hfPath: "")
         }
     }
+
+    @Test func snapshotCompletenessShardedComplete() throws {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("olmlx-snap-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let index: [String: Any] = [
+            "metadata": ["total_size": 1],
+            "weight_map": [
+                "language_model.lm_head.weight": "model-00002-of-00002.safetensors",
+                "language_model.model.embed_tokens.weight": "model-00001-of-00002.safetensors",
+            ],
+        ]
+        try JSONSerialization.data(withJSONObject: index)
+            .write(to: dir.appendingPathComponent("model.safetensors.index.json"))
+        try Data().write(to: dir.appendingPathComponent("model-00001-of-00002.safetensors"))
+        try Data().write(to: dir.appendingPathComponent("model-00002-of-00002.safetensors"))
+
+        #expect(ModelStore.isSnapshotComplete(at: dir) == true)
+    }
+
+    @Test func snapshotCompletenessShardedMissing() throws {
+        // Regression for issue #60: metadata-only directory (interrupted
+        // download) must be reported as incomplete so callers re-download.
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("olmlx-snap-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let index: [String: Any] = [
+            "weight_map": [
+                "language_model.lm_head.weight": "model-00004-of-00004.safetensors",
+                "language_model.model.embed_tokens.weight": "model-00001-of-00004.safetensors",
+            ]
+        ]
+        try JSONSerialization.data(withJSONObject: index)
+            .write(to: dir.appendingPathComponent("model.safetensors.index.json"))
+
+        #expect(ModelStore.isSnapshotComplete(at: dir) == false)
+    }
+
+    @Test func snapshotCompletenessSingleFile() throws {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("olmlx-snap-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        #expect(ModelStore.isSnapshotComplete(at: dir) == false)
+
+        try Data().write(to: dir.appendingPathComponent("model.safetensors"))
+        #expect(ModelStore.isSnapshotComplete(at: dir) == true)
+    }
 }
