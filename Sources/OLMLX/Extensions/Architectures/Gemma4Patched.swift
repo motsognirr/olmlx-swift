@@ -1,3 +1,19 @@
+//
+//  Gemma4Patched.swift
+//
+//  TEMPORARY in-tree override of mlx-swift-lm's Gemma 4 architecture.
+//  Vendored from .build/checkouts/mlx-swift-lm/Libraries/MLXLLM/Models/{Gemma4Text,Gemma4}.swift
+//  (v3.31.3) and registered onto LLMTypeRegistry.shared via OLMLXExtensions, overriding
+//  upstream for model_type "gemma4" / "gemma4_text".
+//
+//  Fixes (ground truth: mlx-lm gemma4_text.py):
+//    #57 — quantizable per-layer model projection (replaces unquantizable ScaledLinear)
+//    #58 — MoE router/experts dual-FFN path for the 26B-A4B variant
+//    #59 — correct k_eq_v value-tensor layout (attention broadcast crash)
+//
+//  Remove this file once a fixed mlx-swift-lm release is pinned (see the gemma4 entry's
+//  removeWhen in OLMLXExtensions.swift); the registry then falls back to upstream.
+//
 import Foundation
 import MLX
 import MLXLLM
