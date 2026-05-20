@@ -76,3 +76,19 @@ struct RemovalConditionTests {
         #expect(cond.isRemovable(pinnedVersion: "9.9.9") == false)
     }
 }
+
+@Suite("Extensions/RegisterAll")
+struct RegisterAllTests {
+
+    @Test func registerAllIsIdempotentAndRegistersTheCanary() async throws {
+        // Safe to call repeatedly.
+        await OLMLXExtensions.registerAll()
+        await OLMLXExtensions.registerAll()
+
+        // The canary resolves on the shared registry after registration.
+        let model = try await LLMTypeRegistry.shared.createModel(
+            configuration: Data(#"{"hidden_size": 8, "num_hidden_layers": 1, "intermediate_size": 8, "num_attention_heads": 2, "rms_norm_eps": 1e-5, "vocab_size": 32, "num_key_value_heads": 2, "rope_theta": 10000.0}"#.utf8),
+            modelType: "olmlx_canary")
+        #expect(model is LlamaModel)
+    }
+}
