@@ -1,8 +1,8 @@
 import Foundation
 import MLX
-import MLXNN
 import MLXLLM
 import MLXLMCommon
+import MLXNN
 import Testing
 
 @testable import OLMLX
@@ -85,11 +85,12 @@ struct RegisterAllTests {
         await OLMLXExtensions.registerAll()
         await OLMLXExtensions.registerAll()
 
-        // The canary resolves on the shared registry after registration.
+        // The canary resolves on the shared registry after registration. CanaryModel is
+        // weightless, so this works without the MLX metal library (e.g. in CI's test job).
         let model = try await LLMTypeRegistry.shared.createModel(
-            configuration: Data(#"{"hidden_size": 8, "num_hidden_layers": 1, "intermediate_size": 8, "num_attention_heads": 2, "rms_norm_eps": 1e-5, "vocab_size": 32, "num_key_value_heads": 2, "rope_theta": 10000.0}"#.utf8),
+            configuration: Data("{}".utf8),
             modelType: "olmlx_canary")
-        #expect(model is LlamaModel)
+        #expect(model is CanaryModel)
     }
 }
 

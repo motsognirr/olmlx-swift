@@ -171,8 +171,8 @@ If it names an entry, that version-gated workaround is now redundant: delete
 its `ExtensionEntry` and architecture file, then bump the pinned upstream
 version. `olmlx ext list` prints the full manifest with tracking links. The
 `olmlx_canary` entry is a permanent self-test (maps an unused `model_type`
-onto upstream Llama so the registration path stays exercised in CI) and is
-never removed.
+onto a trivial weightless built-in `CanaryModel` so the registration path stays
+exercised in CI without needing the MLX metal library) and is never removed.
 
 **Discipline.** Keep ≤5 active architecture overrides; beyond that, push the
 work upstream and wait. One file per architecture so removal is a clean

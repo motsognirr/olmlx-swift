@@ -1,6 +1,8 @@
 import Foundation
+import MLX
 import MLXLLM
 import MLXLMCommon
+import MLXNN
 
 /// Registry of temporary, in-tree architecture/feature extensions layered onto mlx-swift-lm.
 ///
@@ -22,19 +24,22 @@ public enum OLMLXExtensions {
     /// All active temporary extensions.
     ///
     /// `olmlx_canary` is a permanent self-test entry: it maps an unused `model_type`
-    /// onto the upstream Llama implementation so the registration path is exercised
-    /// by tests/CI without depending on a real third-party model. It is intentionally
-    /// never auto-removable and documents the pattern new entries should follow.
+    /// onto a trivial built-in ``CanaryModel`` so the registration path is exercised by
+    /// tests/CI without depending on a real model or the MLX metal library. It is
+    /// intentionally never auto-removable and documents the pattern new entries follow.
     public static let manifest: [ExtensionEntry] = [
         ExtensionEntry(
             modelType: "olmlx_canary",
             kind: .architecture,
             upstreamTracking: URL(
-                string: "https://github.com/DanielPalmqvist/olmlx-swift/blob/main/docs/architecture.md")!,
+                string:
+                    "https://github.com/DanielPalmqvist/olmlx-swift/blob/main/docs/architecture.md"
+            )!,
             addedOn: "2026-05-20",
-            removeWhen: .upstreamMerged(pr: URL(string: "https://example.com/never")!),  // sentinel: canary is never removed
-            notes: "Self-test canary mapping olmlx_canary -> Llama. Not a real model.",
-            creator: creator(LlamaConfiguration.self, { LlamaModel($0) })
+            // sentinel URL: .upstreamMerged is never auto-gated, so the canary is never removed.
+            removeWhen: .upstreamMerged(pr: URL(string: "https://example.com/never")!),
+            notes: "Self-test canary: a trivial built-in model proving the registration path.",
+            creator: { _ in CanaryModel() }
         )
     ]
 
@@ -58,7 +63,8 @@ public enum OLMLXExtensions {
             case .upstreamReleased(let v): removal = "remove when upstream >= \(v)"
             case .upstreamMerged(let pr): removal = "remove when merged: \(pr.absoluteString)"
             }
-            return "[\(entry.kind.rawValue)] \(entry.modelType) — \(removal) — tracking \(entry.upstreamTracking.absoluteString) (added \(entry.addedOn))"
+            return "[\(entry.kind.rawValue)] \(entry.modelType) — \(removal) "
+                + "— tracking \(entry.upstreamTracking.absoluteString) (added \(entry.addedOn))"
         }.joined(separator: "\n")
     }
 
@@ -77,6 +83,17 @@ public enum OLMLXExtensions {
             await register(manifest, onto: LLMTypeRegistry.shared)
         }
     }
+}
+
+/// Trivial, weightless `LanguageModel` backing the `olmlx_canary` self-test entry.
+/// It allocates no parameters, so it can be constructed in unit tests without the MLX
+/// metal library. It is never used to serve a real model.
+final class CanaryModel: Module, LanguageModel {
+    func prepare(_ input: LMInput, cache: [KVCache], windowSize: Int?) throws -> PrepareResult {
+        .tokens(input.text)
+    }
+    func callAsFunction(_ inputs: MLXArray, cache: [KVCache]?) -> MLXArray { inputs }
+    func newCache(parameters: GenerateParameters?) -> [KVCache] { [] }
 }
 
 /// Ensures the registration body runs at most once per process and that every caller
