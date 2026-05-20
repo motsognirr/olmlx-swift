@@ -22,7 +22,7 @@ struct ExtList: ParsableCommand {
 struct ExtCheck: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "check",
-        abstract: "Fail if any extension can be removed at the given upstream version")
+        abstract: "Fail if any version-gated extension is covered by the given upstream version")
 
     @Option(name: .long, help: "Pinned mlx-swift-lm version to check against, e.g. 3.31.3")
     var pinnedVersion: String
@@ -35,6 +35,7 @@ struct ExtCheck: ParsableCommand {
             return
         }
         let names = removable.map(\.modelType).joined(separator: ", ")
+        // Reuse ValidationError purely for its non-zero exit + stderr message (CI gate), not for input validation.
         throw ValidationError(
             "These extensions can now be removed (upstream \(pinnedVersion) covers them): \(names)")
     }

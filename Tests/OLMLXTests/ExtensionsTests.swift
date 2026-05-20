@@ -117,6 +117,10 @@ struct ReportingTests {
         ]
     }
 
+    @Test func listSummaryHandlesEmpty() {
+        #expect(OLMLXExtensions.listSummary([]) == "No active extensions.")
+    }
+
     @Test func listSummaryNamesEveryEntry() {
         let text = OLMLXExtensions.listSummary(entries())
         #expect(text.contains("a_model"))
