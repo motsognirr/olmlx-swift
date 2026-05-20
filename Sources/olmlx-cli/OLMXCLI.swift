@@ -17,6 +17,7 @@ struct OLMXCLI: AsyncParsableCommand {
             Bench.self,
             Config.self,
             Service.self,
+            Ext.self,
         ],
         defaultSubcommand: Serve.self
     )

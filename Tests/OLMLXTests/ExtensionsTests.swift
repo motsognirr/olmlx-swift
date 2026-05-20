@@ -92,3 +92,43 @@ struct RegisterAllTests {
         #expect(model is LlamaModel)
     }
 }
+
+@Suite("Extensions/Reporting")
+struct ReportingTests {
+
+    private func entries() -> [ExtensionEntry] {
+        [
+            ExtensionEntry(
+                modelType: "a_model",
+                kind: .architecture,
+                upstreamTracking: URL(string: "https://example.com/pr/1")!,
+                addedOn: "2026-05-20",
+                removeWhen: .upstreamReleased(version: "3.32.0"),
+                notes: "n1",
+                creator: { _ in fatalError() }),
+            ExtensionEntry(
+                modelType: "b_feature",
+                kind: .feature,
+                upstreamTracking: URL(string: "https://example.com/pr/2")!,
+                addedOn: "2026-05-20",
+                removeWhen: .upstreamMerged(pr: URL(string: "https://example.com/pr/2")!),
+                notes: "n2",
+                creator: { _ in fatalError() }),
+        ]
+    }
+
+    @Test func listSummaryNamesEveryEntry() {
+        let text = OLMLXExtensions.listSummary(entries())
+        #expect(text.contains("a_model"))
+        #expect(text.contains("b_feature"))
+        #expect(text.contains("3.32.0"))
+    }
+
+    @Test func removableEntriesAreFlaggedAtPinnedVersion() {
+        let removable = OLMLXExtensions.removableEntries(entries(), pinnedVersion: "3.32.0")
+        #expect(removable.map(\.modelType) == ["a_model"])
+
+        let none = OLMLXExtensions.removableEntries(entries(), pinnedVersion: "3.31.3")
+        #expect(none.isEmpty)
+    }
+}

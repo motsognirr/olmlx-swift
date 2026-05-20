@@ -49,6 +49,26 @@ public enum OLMLXExtensions {
         }
     }
 
+    /// Human-readable, one-line-per-entry summary for `olmlx ext list`.
+    public static func listSummary(_ entries: [ExtensionEntry]) -> String {
+        if entries.isEmpty { return "No active extensions." }
+        return entries.map { entry in
+            let removal: String
+            switch entry.removeWhen {
+            case .upstreamReleased(let v): removal = "remove when upstream >= \(v)"
+            case .upstreamMerged(let pr): removal = "remove when merged: \(pr.absoluteString)"
+            }
+            return "[\(entry.kind.rawValue)] \(entry.modelType) — \(removal) — tracking \(entry.upstreamTracking.absoluteString) (added \(entry.addedOn))"
+        }.joined(separator: "\n")
+    }
+
+    /// Entries whose removal condition is satisfied at the given pinned upstream version.
+    public static func removableEntries(
+        _ entries: [ExtensionEntry], pinnedVersion: String
+    ) -> [ExtensionEntry] {
+        entries.filter { $0.removeWhen.isRemovable(pinnedVersion: pinnedVersion) }
+    }
+
     /// Registers every manifest entry onto `LLMTypeRegistry.shared` exactly once per process.
     /// Safe to call from any load path; concurrent and repeat calls all await the same
     /// one-time registration.
