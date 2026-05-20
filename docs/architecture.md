@@ -68,6 +68,15 @@ A whirlwind tour for people who want to read the code or extend it.
   `MLXLMCommon.GenerateParameters`. `runGeneration` / `runStreamingGeneration`
   are the two generation entry points; they apply the tokenizer chat
   template, build an `LMInput`, and consume the MLX async stream.
+- `Sources/OLMLX/Extensions/ExtensionEntry.swift` — value types for the
+  extension layer: `ExtensionKind`, `RemovalCondition` (+ its
+  `isRemovable(pinnedVersion:)` gate), and `ExtensionEntry`.
+- `Sources/OLMLX/Extensions/OLMLXExtensions.swift` — the `manifest` of
+  temporary architectures, `register(_:onto:)`, the once-per-process
+  `registerAll()`, and the `listSummary` / `removableEntries` reporting
+  helpers. See "Extension layer" below.
+- `Sources/olmlx-cli/ExtensionsCommand.swift` — `olmlx ext list` /
+  `olmlx ext check` subcommands (thin wrappers over the helpers above).
 - `Sources/OLMLX/Engine/ToolParser.swift` — best-effort parser for the
   six-ish tool-call formats popular models emit. Reaches into the model's
   raw text output and returns `ToolUse` structs.
@@ -130,6 +139,45 @@ branch.
 - The default route handlers use `async throws` and `await` actor calls
   directly. There is no separate executor or queue.
 
+## Extension layer
+
+Model-architecture and inference-feature support normally comes from the
+upstream `mlx-swift-lm` package. When upstream lags — a new `model_type`
+isn't registered yet, or a known architecture has a bug — the extension
+layer lets us ship *temporary, tracked* support in-tree instead of waiting.
+Background and policy: `docs/superpowers/specs/2026-05-19-architecture-feature-extension-layer-design.md`.
+
+**How registration works.** `mlx-swift-lm` exposes `LLMTypeRegistry.shared`,
+a mutable `actor ModelTypeRegistry` keyed by `model_type`.
+`OLMLXExtensions.registerAll()` layers every entry in
+`OLMLXExtensions.manifest` onto that shared registry. It runs once per
+process — `DefaultInferenceEngine.loadModel` awaits it before every container
+load, so the existing `MLXLMCommon.loadModelContainer` path (including its
+VLM-factory fallback) is unchanged. Registering our own `model_type` simply
+adds a creator; registering an existing one overrides upstream's.
+
+**Adding an entry.** Implement the architecture as a type conforming to
+`LanguageModel` (one file per architecture under `Sources/OLMLX/Extensions/`),
+then append an `ExtensionEntry` to `manifest` with:
+- `creator: OLMLXExtensions.creator(YourConfig.self, YourModel.init)`,
+- a mandatory `upstreamTracking` URL (the issue/PR you're working around — no
+  entry without one; open one first if it doesn't exist), and
+- a `removeWhen` condition: `.upstreamReleased(version:)` for "delete once we
+  pin this version" or `.upstreamMerged(pr:)` for "delete after this PR lands"
+  (the latter is never auto-gated and needs a manual check).
+
+**Removing an entry.** Run `olmlx ext check --pinned-version <current-mlx-swift-lm>`.
+If it names an entry, that version-gated workaround is now redundant: delete
+its `ExtensionEntry` and architecture file, then bump the pinned upstream
+version. `olmlx ext list` prints the full manifest with tracking links. The
+`olmlx_canary` entry is a permanent self-test (maps an unused `model_type`
+onto a trivial weightless built-in `CanaryModel` so the registration path stays
+exercised in CI without needing the MLX metal library) and is never removed.
+
+**Discipline.** Keep ≤5 active architecture overrides; beyond that, push the
+work upstream and wait. One file per architecture so removal is a clean
+delete. Every entry carries an upstream tracking URL.
+
 ## Tests
 
 Lightweight unit tests live in `Tests/OLMLXTests/`:
@@ -141,6 +189,9 @@ Lightweight unit tests live in `Tests/OLMLXTests/`:
 - `SchemaTests` — Codable round-trips and validation for the request/
   response types.
 - `UtilsTests` — streaming/timing/memory helpers.
+- `ExtensionsTests` — removal-condition logic, registry registration
+  (against the real `ModelTypeRegistry`), idempotent `registerAll`, and the
+  `ext` reporting helpers.
 
 No integration tests against a real model — those would require the
 metallib and a downloaded snapshot. Add them locally if you're changing the

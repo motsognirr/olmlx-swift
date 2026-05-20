@@ -70,7 +70,8 @@ public final class DefaultInferenceEngine: InferenceEngineProtocol {
     }
 
     public func loadModel(from directory: URL) async throws -> ModelContainer {
-        try await MLXLMCommon.loadModelContainer(
+        await OLMLXExtensions.registerAll()
+        return try await MLXLMCommon.loadModelContainer(
             from: directory,
             using: tokenizerLoader
         )
