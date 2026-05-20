@@ -10,7 +10,7 @@ public enum OLMLXExtensions {
 
     /// Builds a `creator` closure that decodes `config.json` into `C` and instantiates `M`.
     /// Uses json5 decoding to match mlx-swift-lm's own configuration parsing.
-    public static func creator<C: Decodable, M: LanguageModel>(
+    public static func creator<C: Decodable & Sendable, M: LanguageModel>(
         _ configType: C.Type, _ make: @escaping @Sendable (C) -> M
     ) -> @Sendable (Data) throws -> any LanguageModel {
         { data in
@@ -32,7 +32,7 @@ public enum OLMLXExtensions {
             upstreamTracking: URL(
                 string: "https://github.com/DanielPalmqvist/olmlx-swift/blob/main/docs/architecture.md")!,
             addedOn: "2026-05-20",
-            removeWhen: .upstreamMerged(pr: URL(string: "https://example.com/never")!),
+            removeWhen: .upstreamMerged(pr: URL(string: "https://example.com/never")!),  // sentinel: canary is never removed
             notes: "Self-test canary mapping olmlx_canary -> Llama. Not a real model.",
             creator: creator(LlamaConfiguration.self, { LlamaModel($0) })
         )
