@@ -27,6 +27,7 @@ public enum RemovalCondition: Sendable {
 
 /// Compares dotted numeric versions. Returns -1, 0, or 1.
 /// Non-numeric / missing components are treated as 0.
+/// A pre-release or build suffix such as `"3.32.0-beta"` therefore compares equal to `"3.32.0"`.
 func compareVersions(_ lhs: String, _ rhs: String) -> Int {
     let l = lhs.split(separator: ".").map { Int($0) ?? 0 }
     let r = rhs.split(separator: ".").map { Int($0) ?? 0 }
@@ -49,7 +50,7 @@ public struct ExtensionEntry: Sendable {
     public let removeWhen: RemovalCondition
     public let notes: String
     /// Builds a `LanguageModel` from raw `config.json` data.
-    public let creator: @Sendable (Data) throws -> LanguageModel
+    public let creator: @Sendable (Data) throws -> any LanguageModel
 
     public init(
         modelType: String,
@@ -58,7 +59,7 @@ public struct ExtensionEntry: Sendable {
         addedOn: String,
         removeWhen: RemovalCondition,
         notes: String,
-        creator: @escaping @Sendable (Data) throws -> LanguageModel
+        creator: @escaping @Sendable (Data) throws -> any LanguageModel
     ) {
         self.modelType = modelType
         self.kind = kind
