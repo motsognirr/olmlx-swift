@@ -795,6 +795,9 @@ public class Gemma4PatchedTextModel: Module, LLMModel, KVCacheDimensionProvider 
             sanitized[k] = v
         }
 
+        // Note: mlx-lm's gemma4 model defines a quant_predicate that forces router.proj
+        // to 8-bit. That is a conversion-time concern; at load time per-module quantization
+        // is driven by the checkpoint's config.json "quantization" map, so we don't replicate it.
         // #58: split fused MoE expert weights into SwitchGLU submodule keys.
         var split = [String: MLXArray]()
         for (k, v) in sanitized {
