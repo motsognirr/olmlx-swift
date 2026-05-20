@@ -15,10 +15,11 @@ struct Gemma4PatchedConfigTests {
     }
 
     @Test func moeFieldsDecodeWhenPresent() throws {
-        let cfg = try decodeText(#"""
-        {"model_type":"gemma4_text","enable_moe_block":true,
-         "num_experts":128,"top_k_experts":8,"moe_intermediate_size":704}
-        """#)
+        let cfg = try decodeText(
+            #"""
+            {"model_type":"gemma4_text","enable_moe_block":true,
+             "num_experts":128,"top_k_experts":8,"moe_intermediate_size":704}
+            """#)
         #expect(cfg.enableMoeBlock == true)
         #expect(cfg.numExperts == 128)
         #expect(cfg.topKExperts == 8)
@@ -93,14 +94,15 @@ struct Gemma4PatchedSanitizeTests {
     private func moeConfig() throws -> Gemma4PatchedConfiguration {
         try JSONDecoder().decode(
             Gemma4PatchedConfiguration.self,
-            from: Data(#"""
-            {"model_type":"gemma4","text_config":{"model_type":"gemma4_text",
-             "hidden_size":8,"num_hidden_layers":1,"num_attention_heads":2,
-             "num_key_value_heads":1,"hidden_size_per_layer_input":0,
-             "num_kv_shared_layers":0,
-             "enable_moe_block":true,"num_experts":4,"top_k_experts":2,
-             "moe_intermediate_size":6,"layer_types":["full_attention"]}}
-            """#.utf8))
+            from: Data(
+                #"""
+                {"model_type":"gemma4","text_config":{"model_type":"gemma4_text",
+                 "hidden_size":8,"num_hidden_layers":1,"num_attention_heads":2,
+                 "num_key_value_heads":1,"hidden_size_per_layer_input":0,
+                 "num_kv_shared_layers":0,
+                 "enable_moe_block":true,"num_experts":4,"top_k_experts":2,
+                 "moe_intermediate_size":6,"layer_types":["full_attention"]}}
+                """#.utf8))
     }
 
     @Test func splitsFusedExpertWeights() throws {
@@ -134,12 +136,12 @@ struct Gemma4PatchedRegistrationTests {
         let entry = try #require(
             OLMLXExtensions.manifest.first { $0.modelType == "gemma4" })
         let cfg = #"""
-        {"model_type":"gemma4","text_config":{"model_type":"gemma4_text",
-         "hidden_size":8,"num_hidden_layers":1,"num_attention_heads":2,
-         "num_key_value_heads":1,"hidden_size_per_layer_input":0,
-         "num_kv_shared_layers":0,
-         "layer_types":["full_attention"]}}
-        """#
+            {"model_type":"gemma4","text_config":{"model_type":"gemma4_text",
+             "hidden_size":8,"num_hidden_layers":1,"num_attention_heads":2,
+             "num_key_value_heads":1,"hidden_size_per_layer_input":0,
+             "num_kv_shared_layers":0,
+             "layer_types":["full_attention"]}}
+            """#
         let model = try entry.creator(Data(cfg.utf8))
         #expect(model is Gemma4PatchedModel)
     }
@@ -151,12 +153,14 @@ struct Gemma4PatchedEndToEndTests {
     /// Resolves a checkpoint snapshot dir in the HF cache, or nil if absent.
     private func snapshotDir(_ repo: String) -> URL? {
         let home = FileManager.default.homeDirectoryForCurrentUser
-        let base = home
+        let base =
+            home
             .appendingPathComponent(".cache/huggingface/hub")
             .appendingPathComponent("models--" + repo.replacingOccurrences(of: "/", with: "--"))
             .appendingPathComponent("snapshots")
-        guard let kids = try? FileManager.default.contentsOfDirectory(
-            at: base, includingPropertiesForKeys: nil), let first = kids.first
+        guard
+            let kids = try? FileManager.default.contentsOfDirectory(
+                at: base, includingPropertiesForKeys: nil), let first = kids.first
         else { return nil }
         return first
     }
@@ -172,7 +176,11 @@ struct Gemma4PatchedEndToEndTests {
             container: container,
             messages: [["role": "user", "content": "Hi"]],
             tools: nil,
-            parameters: { var p = GenerateParameters(); p.maxTokens = 1; return p }()
+            parameters: {
+                var p = GenerateParameters()
+                p.maxTokens = 1
+                return p
+            }()
         )
         #expect(text.isEmpty == false)
     }

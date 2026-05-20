@@ -136,7 +136,7 @@ public struct Gemma4PatchedTextConfiguration: Codable, Sendable {
         } else {
             // Derive layer types from sliding window pattern
             var pattern = [String]()
-            for i in 0 ..< slidingWindowPattern {
+            for i in 0..<slidingWindowPattern {
                 pattern.append(
                     i == slidingWindowPattern - 1 ? "full_attention" : "sliding_attention")
             }
@@ -348,7 +348,7 @@ class Gemma4PatchedAttention: Module {
         if case .array(let maskArray) = mask {
             let keysSeqLen = keys.dim(2)
             if maskArray.dim(-1) != keysSeqLen {
-                adjustedMask = .array(maskArray[.ellipsis, 0 ..< keysSeqLen])
+                adjustedMask = .array(maskArray[.ellipsis, 0..<keysSeqLen])
             }
         }
 
@@ -616,7 +616,7 @@ class Gemma4PatchedTextModelInner: Module {
 
         self._embedTokens.wrappedValue = Embedding(
             embeddingCount: config.vocabSize, dimensions: config.hiddenSize)
-        self._layers.wrappedValue = (0 ..< config.numHiddenLayers).map {
+        self._layers.wrappedValue = (0..<config.numHiddenLayers).map {
             Gemma4PatchedDecoderLayer(config, layerIdx: $0)
         }
         self._norm.wrappedValue = RMSNorm(dimensions: config.hiddenSize, eps: config.rmsNormEps)
@@ -636,15 +636,15 @@ class Gemma4PatchedTextModelInner: Module {
 
         // Build KV-sharing map
         self.firstKvSharedLayerIdx = config.numHiddenLayers - config.numKvSharedLayers
-        var kvMap = Array(0 ..< config.numHiddenLayers)
+        var kvMap = Array(0..<config.numHiddenLayers)
         if config.numKvSharedLayers > 0 {
             // Find the last non-shared layer of each type
             var lastByType = [String: Int]()
-            for i in 0 ..< firstKvSharedLayerIdx {
+            for i in 0..<firstKvSharedLayerIdx {
                 lastByType[config.layerTypes[i]] = i
             }
             // Shared layers reference the last non-shared layer of the same type
-            for j in firstKvSharedLayerIdx ..< config.numHiddenLayers {
+            for j in firstKvSharedLayerIdx..<config.numHiddenLayers {
                 if let prev = lastByType[config.layerTypes[j]] {
                     kvMap[j] = prev
                 }
@@ -689,7 +689,7 @@ class Gemma4PatchedTextModelInner: Module {
             let perLayerInputScale = pow(Float(2.0), -0.5)
             let combined = (normedModelPLE + reshapedTokenPLE) * perLayerInputScale
 
-            perLayerInputs = (0 ..< config.numHiddenLayers).map { i in
+            perLayerInputs = (0..<config.numHiddenLayers).map { i in
                 combined[.ellipsis, i, 0...]
             }
         } else {
@@ -761,7 +761,7 @@ public class Gemma4PatchedTextModel: Module, LLMModel, KVCacheDimensionProvider 
     public init(_ config: Gemma4PatchedTextConfiguration) {
         self.config = config
         self.vocabularySize = config.vocabSize
-        self.kvHeads = (0 ..< config.numHiddenLayers).map { _ in config.numKeyValueHeads }
+        self.kvHeads = (0..<config.numHiddenLayers).map { _ in config.numKeyValueHeads }
         self.model = Gemma4PatchedTextModelInner(config)
 
         if !config.tieWordEmbeddings {
@@ -822,7 +822,7 @@ public class Gemma4PatchedTextModel: Module, LLMModel, KVCacheDimensionProvider 
         let firstKvShared = config.numHiddenLayers - config.numKvSharedLayers
 
         var caches = [any KVCache]()
-        for i in 0 ..< firstKvShared {
+        for i in 0..<firstKvShared {
             if config.layerTypes[i] == "full_attention" {
                 caches.append(StandardKVCache())
             } else {

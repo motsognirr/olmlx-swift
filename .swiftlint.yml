@@ -6,6 +6,9 @@ excluded:
   - .build
   - Package.swift
   - Package.resolved
+  # Temporary vendored copy of upstream mlx-swift-lm Gemma4 sources (issues #57/#58/#59).
+  # Linted under upstream's conventions, not ours; removed when the override is deleted.
+  - Sources/OLMLX/Extensions/Architectures/Gemma4Patched.swift
 
 disabled_rules:
   # Handled by swift-format
