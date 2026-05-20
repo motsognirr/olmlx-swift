@@ -85,3 +85,37 @@ struct Gemma4PatchedAttentionTests {
         #expect(out.dim(2) == cfg.hiddenSize)
     }
 }
+
+@Suite("Extensions/Gemma4Patched/Sanitize")
+struct Gemma4PatchedSanitizeTests {
+
+    private func moeConfig() throws -> Gemma4PatchedConfiguration {
+        try JSONDecoder().decode(
+            Gemma4PatchedConfiguration.self,
+            from: Data(#"""
+            {"model_type":"gemma4","text_config":{"model_type":"gemma4_text",
+             "hidden_size":8,"num_hidden_layers":1,"num_attention_heads":2,
+             "num_key_value_heads":1,"hidden_size_per_layer_input":0,
+             "num_kv_shared_layers":0,
+             "enable_moe_block":true,"num_experts":4,"top_k_experts":2,
+             "moe_intermediate_size":6,"layer_types":["full_attention"]}}
+            """#.utf8))
+    }
+
+    @Test func splitsFusedExpertWeights() throws {
+        let model = Gemma4PatchedModel(try moeConfig())
+        let base = "language_model.model.layers.0.experts"
+        // gate_up_proj: [experts, 2*hidden_dims, input]
+        let gateUp = MLXArray.ones([4, 12, 8])
+        let down = MLXArray.ones([4, 8, 6])
+        let out = model.sanitize(weights: [
+            "\(base).gate_up_proj": gateUp,
+            "\(base).down_proj": down,
+        ])
+        #expect(out["\(base).gate_up_proj"] == nil)
+        #expect(out["\(base).down_proj"] == nil)
+        #expect(out["\(base).switch_glu.gate_proj.weight"]?.dim(-2) == 6)
+        #expect(out["\(base).switch_glu.up_proj.weight"]?.dim(-2) == 6)
+        #expect(out["\(base).switch_glu.down_proj.weight"]?.dim(-1) == 6)
+    }
+}
