@@ -78,7 +78,8 @@ struct Gemma4PatchedAttentionTests {
 
         let attn = Gemma4PatchedAttention(cfg, layerIdx: 0)
         let x = MLXArray.ones([1, 5, cfg.hiddenSize]).asType(.float32)
-        let (out, _, _) = attn(x, mask: .none, cache: nil)
+        let (out, _, _) = attn(
+            x, mask: MLXFast.ScaledDotProductAttentionMaskMode.none, cache: nil)
         out.eval()
         #expect(out.dim(0) == 1)
         #expect(out.dim(1) == 5)
