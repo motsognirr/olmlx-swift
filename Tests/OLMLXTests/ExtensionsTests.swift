@@ -127,6 +127,8 @@ struct ReportingTests {
         #expect(text.contains("a_model"))
         #expect(text.contains("b_feature"))
         #expect(text.contains("3.32.0"))
+        #expect(text.contains("n1"))
+        #expect(text.contains("n2"))
     }
 
     @Test func removableEntriesAreFlaggedAtPinnedVersion() {

@@ -92,6 +92,7 @@ public enum OLMLXExtensions {
             }
             return "[\(entry.kind.rawValue)] \(entry.modelType) — \(removal) "
                 + "— tracking \(entry.upstreamTracking.absoluteString) (added \(entry.addedOn))"
+                + " — \(entry.notes)"
         }.joined(separator: "\n")
     }
 
