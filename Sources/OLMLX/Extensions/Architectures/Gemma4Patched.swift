@@ -542,6 +542,8 @@ class Gemma4PatchedDecoderLayer: Module {
         var out = residual + postAttn
 
         let residual2 = out
+        // MoE layers run a dense FFN (h1) and a sparse expert path (h2) over the SAME
+        // post-attention input, then sum them (gemma4_text.py:342-360).
         if enableMoe, let router, let experts,
             let pffn1 = postFeedforwardLayernorm1,
             let pffn2 = postFeedforwardLayernorm2,
