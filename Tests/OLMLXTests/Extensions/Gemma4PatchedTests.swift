@@ -143,3 +143,48 @@ struct Gemma4PatchedRegistrationTests {
         #expect(model is Gemma4PatchedModel)
     }
 }
+
+@Suite("Extensions/Gemma4Patched/EndToEnd")
+struct Gemma4PatchedEndToEndTests {
+
+    /// Resolves a checkpoint snapshot dir in the HF cache, or nil if absent.
+    private func snapshotDir(_ repo: String) -> URL? {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let base = home
+            .appendingPathComponent(".cache/huggingface/hub")
+            .appendingPathComponent("models--" + repo.replacingOccurrences(of: "/", with: "--"))
+            .appendingPathComponent("snapshots")
+        guard let kids = try? FileManager.default.contentsOfDirectory(
+            at: base, includingPropertiesForKeys: nil), let first = kids.first
+        else { return nil }
+        return first
+    }
+
+    private func generatesOneToken(_ repo: String) async throws {
+        guard let dir = snapshotDir(repo) else {
+            // Checkpoint not present on this machine — skip.
+            return
+        }
+        let engine = DefaultInferenceEngine()
+        let container = try await engine.loadModel(from: dir)
+        let (text, _) = try await runGeneration(
+            container: container,
+            messages: [["role": "user", "content": "Hi"]],
+            tools: nil,
+            parameters: { var p = GenerateParameters(); p.maxTokens = 1; return p }()
+        )
+        #expect(text.isEmpty == false)
+    }
+
+    @Test func e2bLoadsAndGenerates() async throws {
+        try await generatesOneToken("mlx-community/gemma-4-e2b-it-OptiQ-4bit")
+    }
+
+    @Test func gemma26BMoELoadsAndGenerates() async throws {
+        try await generatesOneToken("mlx-community/gemma-4-26B-A4B-it-OptiQ-4bit")
+    }
+
+    @Test func gemma31BLoadsAndGenerates() async throws {
+        try await generatesOneToken("mlx-community/gemma-4-31B-it-OptiQ-4bit")
+    }
+}
