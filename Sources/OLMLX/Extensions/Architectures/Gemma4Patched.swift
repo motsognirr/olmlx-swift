@@ -47,6 +47,12 @@ public struct Gemma4PatchedTextConfiguration: Codable, Sendable {
     var layerTypes: [String] = []
     var tieWordEmbeddings: Bool = true
 
+    // MoE (mixture-of-experts) parameters
+    var enableMoeBlock: Bool = false
+    var numExperts: Int? = nil
+    var topKExperts: Int? = nil
+    var moeIntermediateSize: Int? = nil
+
     // RoPE parameters (nested dict with full_attention/sliding_attention sub-configs)
     var ropeParameters: [String: [String: StringOrNumber]]?
 
@@ -79,6 +85,10 @@ public struct Gemma4PatchedTextConfiguration: Codable, Sendable {
         case useDoubleWideMlp = "use_double_wide_mlp"
         case layerTypes = "layer_types"
         case tieWordEmbeddings = "tie_word_embeddings"
+        case enableMoeBlock = "enable_moe_block"
+        case numExperts = "num_experts"
+        case topKExperts = "top_k_experts"
+        case moeIntermediateSize = "moe_intermediate_size"
         case ropeParameters = "rope_parameters"
     }
 
@@ -138,6 +148,12 @@ public struct Gemma4PatchedTextConfiguration: Codable, Sendable {
         }
         self.tieWordEmbeddings =
             try container.decodeIfPresent(Bool.self, forKey: .tieWordEmbeddings) ?? true
+        self.enableMoeBlock =
+            try container.decodeIfPresent(Bool.self, forKey: .enableMoeBlock) ?? false
+        self.numExperts = try container.decodeIfPresent(Int.self, forKey: .numExperts)
+        self.topKExperts = try container.decodeIfPresent(Int.self, forKey: .topKExperts)
+        self.moeIntermediateSize =
+            try container.decodeIfPresent(Int.self, forKey: .moeIntermediateSize)
         self.ropeParameters =
             try container.decodeIfPresent(
                 [String: [String: StringOrNumber]].self, forKey: .ropeParameters)
