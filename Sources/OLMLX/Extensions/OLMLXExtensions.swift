@@ -47,10 +47,12 @@ public enum OLMLXExtensions {
             upstreamTracking: URL(
                 string: "https://github.com/ml-explore/mlx-swift-lm/pull/244")!,
             addedOn: "2026-05-20",
+            // placeholder version: no upstream mlx-swift-lm release carries these fixes yet
             removeWhen: .upstreamReleased(version: "99.0.0"),
             notes: "Gemma4 override: quantizable per-layer projection (#57), "
                 + "k_eq_v value layout (#59), MoE dual-FFN path (#58). "
-                + "Bump removeWhen to the first mlx-swift-lm release carrying all three.",
+                + "Bump removeWhen to the first mlx-swift-lm release carrying all three."
+                + " (removeWhen 99.0.0 is a placeholder until a fixed release exists.)",
             creator: creator(Gemma4PatchedConfiguration.self, Gemma4PatchedModel.init)
         ),
         ExtensionEntry(
@@ -59,8 +61,10 @@ public enum OLMLXExtensions {
             upstreamTracking: URL(
                 string: "https://github.com/ml-explore/mlx-swift-lm/pull/244")!,
             addedOn: "2026-05-20",
+            // placeholder version: no upstream mlx-swift-lm release carries these fixes yet
             removeWhen: .upstreamReleased(version: "99.0.0"),
-            notes: "Text-only Gemma4 override; see the gemma4 entry.",
+            notes: "Text-only Gemma4 override; see the gemma4 entry."
+                + " (removeWhen 99.0.0 is a placeholder until a fixed release exists.)",
             creator: creator(
                 Gemma4PatchedTextConfiguration.self, Gemma4PatchedTextModel.init)
         ),
