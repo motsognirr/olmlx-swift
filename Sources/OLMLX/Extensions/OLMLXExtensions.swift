@@ -40,7 +40,30 @@ public enum OLMLXExtensions {
             removeWhen: .upstreamMerged(pr: URL(string: "https://example.com/never")!),
             notes: "Self-test canary: a trivial built-in model proving the registration path.",
             creator: { _ in CanaryModel() }
-        )
+        ),
+        ExtensionEntry(
+            modelType: "gemma4",
+            kind: .architecture,
+            upstreamTracking: URL(
+                string: "https://github.com/ml-explore/mlx-swift-lm/pull/244")!,
+            addedOn: "2026-05-20",
+            removeWhen: .upstreamReleased(version: "99.0.0"),
+            notes: "Gemma4 override: quantizable per-layer projection (#57), "
+                + "k_eq_v value layout (#59), MoE dual-FFN path (#58). "
+                + "Bump removeWhen to the first mlx-swift-lm release carrying all three.",
+            creator: creator(Gemma4PatchedConfiguration.self, Gemma4PatchedModel.init)
+        ),
+        ExtensionEntry(
+            modelType: "gemma4_text",
+            kind: .architecture,
+            upstreamTracking: URL(
+                string: "https://github.com/ml-explore/mlx-swift-lm/pull/244")!,
+            addedOn: "2026-05-20",
+            removeWhen: .upstreamReleased(version: "99.0.0"),
+            notes: "Text-only Gemma4 override; see the gemma4 entry.",
+            creator: creator(
+                Gemma4PatchedTextConfiguration.self, Gemma4PatchedTextModel.init)
+        ),
     ]
 
     /// Registers the given entries onto a registry (overwriting any existing entry for

@@ -119,3 +119,27 @@ struct Gemma4PatchedSanitizeTests {
         #expect(out["\(base).switch_glu.down_proj.weight"]?.dim(-1) == 6)
     }
 }
+
+@Suite("Extensions/Gemma4Patched/Registration")
+struct Gemma4PatchedRegistrationTests {
+
+    @Test func manifestRegistersGemma4Overrides() {
+        let types = Set(OLMLXExtensions.manifest.map { $0.modelType })
+        #expect(types.contains("gemma4"))
+        #expect(types.contains("gemma4_text"))
+    }
+
+    @Test func gemma4EntryBuildsAModelFromConfig() throws {
+        let entry = try #require(
+            OLMLXExtensions.manifest.first { $0.modelType == "gemma4" })
+        let cfg = #"""
+        {"model_type":"gemma4","text_config":{"model_type":"gemma4_text",
+         "hidden_size":8,"num_hidden_layers":1,"num_attention_heads":2,
+         "num_key_value_heads":1,"hidden_size_per_layer_input":0,
+         "num_kv_shared_layers":0,
+         "layer_types":["full_attention"]}}
+        """#
+        let model = try entry.creator(Data(cfg.utf8))
+        #expect(model is Gemma4PatchedModel)
+    }
+}
