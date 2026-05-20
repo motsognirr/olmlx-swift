@@ -317,6 +317,10 @@ class Gemma4PatchedAttention: Module {
             k = k.transposed(0, 2, 1, 3)
             k = gemma4PatchedApplyRotaryPosition(rope, to: k, offset: activePositionOffset)
 
+            // #59: values must derive from the pre-transpose/pre-rope reshaped keys.
+            // RoPE and the head-dim transpose must NOT be baked into the value path
+            // (only the k/v norms differ); reusing the already-transposed `k` here
+            // produces a [B,L,H,D] vs [B,H,L,D] mismatch that aborts in SDPA.
             let vReshaped: MLXArray
             if let vProj {
                 vReshaped = vProj(x).reshaped(B, L, nKvHeads, effectiveHeadDim)
