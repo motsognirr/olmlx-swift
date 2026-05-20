@@ -311,18 +311,19 @@ class Gemma4PatchedAttention: Module {
             keys = sharedK
             values = sharedV
         } else {
-            var k = kProj(x).reshaped(B, L, nKvHeads, effectiveHeadDim)
-            k = kNorm(k)
+            let kReshaped = kProj(x).reshaped(B, L, nKvHeads, effectiveHeadDim)
+
+            var k = kNorm(kReshaped)
             k = k.transposed(0, 2, 1, 3)
             k = gemma4PatchedApplyRotaryPosition(rope, to: k, offset: activePositionOffset)
 
-            var v: MLXArray
+            let vReshaped: MLXArray
             if let vProj {
-                v = vProj(x).reshaped(B, L, nKvHeads, effectiveHeadDim)
+                vReshaped = vProj(x).reshaped(B, L, nKvHeads, effectiveHeadDim)
             } else {
-                v = k
+                vReshaped = kReshaped
             }
-            v = vNorm(v)
+            var v = vNorm(vReshaped)
             v = v.transposed(0, 2, 1, 3)
 
             if let cache {

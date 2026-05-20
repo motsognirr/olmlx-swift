@@ -57,3 +57,31 @@ struct Gemma4PatchedProjectionTests {
         #expect(proj.weight.dim(1) == cfg.hiddenSize)
     }
 }
+
+@Suite("Extensions/Gemma4Patched/Attention")
+struct Gemma4PatchedAttentionTests {
+
+    /// Reproduces the #59 broadcast crash: a full-attention layer with
+    /// attention_k_eq_v and global KV heads. Pre-fix this aborts in SDPA.
+    @Test func kEqVFullAttentionForwardProducesCorrectShape() throws {
+        var cfg = try JSONDecoder().decode(
+            Gemma4PatchedTextConfiguration.self,
+            from: Data(#"{"model_type":"gemma4_text"}"#.utf8))
+        cfg.hiddenSize = 64
+        cfg.numAttentionHeads = 8
+        cfg.numKeyValueHeads = 2
+        cfg.numGlobalKeyValueHeads = 2
+        cfg.headDim = 16
+        cfg.globalHeadDim = 32
+        cfg.attentionKeqV = true
+        cfg.layerTypes = ["full_attention"]
+
+        let attn = Gemma4PatchedAttention(cfg, layerIdx: 0)
+        let x = MLXArray.ones([1, 5, cfg.hiddenSize]).asType(.float32)
+        let (out, _, _) = attn(x, mask: .none, cache: nil)
+        out.eval()
+        #expect(out.dim(0) == 1)
+        #expect(out.dim(1) == 5)
+        #expect(out.dim(2) == cfg.hiddenSize)
+    }
+}
