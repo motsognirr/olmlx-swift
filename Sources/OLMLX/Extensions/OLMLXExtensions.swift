@@ -50,21 +50,24 @@ public enum OLMLXExtensions {
     }
 
     /// Registers every manifest entry onto `LLMTypeRegistry.shared` exactly once per process.
-    /// Safe to call from any load path; concurrent and repeat calls are coalesced.
+    /// Safe to call from any load path; concurrent and repeat calls all await the same
+    /// one-time registration.
     public static func registerAll() async {
-        guard await registrationGuard.beginIfNeeded() else { return }
-        await register(manifest, onto: LLMTypeRegistry.shared)
+        await registrationGuard.run {
+            await register(manifest, onto: LLMTypeRegistry.shared)
+        }
     }
 }
 
-/// Ensures `registerAll` runs its body at most once per process.
+/// Ensures the registration body runs at most once per process and that every caller
+/// — including concurrent ones — awaits its completion.
 private actor RegistrationGuard {
-    private var done = false
-    /// Returns true exactly once; false on every subsequent call.
-    func beginIfNeeded() -> Bool {
-        if done { return false }
-        done = true
-        return true
+    private var task: Task<Void, Never>?
+    func run(_ body: @escaping @Sendable () async -> Void) async {
+        if task == nil {
+            task = Task { await body() }
+        }
+        await task!.value
     }
 }
 
