@@ -178,6 +178,22 @@ exercised in CI without needing the MLX metal library) and is never removed.
 work upstream and wait. One file per architecture so removal is a clean
 delete. Every entry carries an upstream tracking URL.
 
+**The Gemma4 override.** The `gemma4` / `gemma4_text` manifest entries are
+temporary in-tree overrides correcting three upstream bugs:
+
+- #57 — e2b per-layer projection quantization (the PLE projection must stay a
+  quantizable `Linear`).
+- #58 — the 26B-A4B MoE dual-FFN (`gate_up_proj`) path.
+- #59 — the 31B attention `k_eq_v` value-tensor layout crash in SDPA.
+
+The implementation lives in
+`Sources/OLMLX/Extensions/Architectures/Gemma4Patched.swift`, a vendored and
+corrected copy of upstream `mlx-swift-lm`'s Gemma4 sources; ground truth for
+the fixes is `mlx-lm`'s `gemma4_text.py`. To remove: delete
+`Gemma4Patched.swift` and the two manifest entries once a fixed `mlx-swift-lm`
+release is pinned, and bump the entries' `removeWhen` version (currently the
+`99.0.0` placeholder) to match — the registry then falls back to upstream.
+
 ## Tests
 
 Lightweight unit tests live in `Tests/OLMLXTests/`:

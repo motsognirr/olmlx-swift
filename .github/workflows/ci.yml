@@ -56,6 +56,31 @@ jobs:
       - name: Build
         run: swift build --build-tests
 
+      - name: Ensure Metal Toolchain available
+        run: |
+          xcodebuild -version
+          if xcrun -sdk macosx metal --version 2>&1; then
+            echo "Metal compiler already available."
+          else
+            echo "Metal compiler missing; downloading Metal Toolchain component..."
+            sudo xcodebuild -downloadComponent MetalToolchain
+            xcrun -sdk macosx metal --version
+          fi
+
+      # Tests that exercise MLX kernels need mlx.metallib next to the test
+      # runner executable (the build script only stages it next to the main
+      # binary). Build it for debug and copy it into the xctest bundle.
+      - name: Stage Metal library for tests
+        run: |
+          scripts/build-metallib.sh debug
+          staged=0
+          for d in .build/debug/*PackageTests.xctest/Contents/MacOS; do
+            cp .build/debug/mlx.metallib "$d/"
+            echo "staged metallib -> $d"
+            staged=1
+          done
+          test "$staged" -eq 1 || (echo "no test bundle found to stage metallib" && exit 1)
+
       - name: Test
         run: swift test --skip-build
 

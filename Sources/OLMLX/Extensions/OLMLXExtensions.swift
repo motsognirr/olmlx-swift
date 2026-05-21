@@ -40,7 +40,39 @@ public enum OLMLXExtensions {
             removeWhen: .upstreamMerged(pr: URL(string: "https://example.com/never")!),
             notes: "Self-test canary: a trivial built-in model proving the registration path.",
             creator: { _ in CanaryModel() }
-        )
+        ),
+        ExtensionEntry(
+            modelType: "gemma4",
+            kind: .architecture,
+            // Gemma 4 family umbrella issue upstream (covers the MoE + 31B gaps).
+            upstreamTracking: URL(
+                string: "https://github.com/ml-explore/mlx-swift-lm/issues/282")!,
+            addedOn: "2026-05-20",
+            // placeholder version: no upstream mlx-swift-lm release carries these fixes yet
+            removeWhen: .upstreamReleased(version: "99.0.0"),
+            notes: "Gemma4 override fixing three upstream gaps. Tracking: "
+                + "quantizable per-layer projection (#57) -> mlx-swift-lm PR #244; "
+                + "MoE experts/router dual-FFN (#58) -> mlx-swift-lm issue #282 (Gap 2); "
+                + "k_eq_v value layout crash (#59) -> mlx-swift-lm issue #231. "
+                + "Remove when a release carrying all three is pinned "
+                + "(removeWhen 99.0.0 is a placeholder until then).",
+            creator: creator(Gemma4PatchedConfiguration.self, Gemma4PatchedModel.init)
+        ),
+        ExtensionEntry(
+            modelType: "gemma4_text",
+            kind: .architecture,
+            // Gemma 4 family umbrella issue upstream (see the gemma4 entry for per-fix links).
+            upstreamTracking: URL(
+                string: "https://github.com/ml-explore/mlx-swift-lm/issues/282")!,
+            addedOn: "2026-05-20",
+            // placeholder version: no upstream mlx-swift-lm release carries these fixes yet
+            removeWhen: .upstreamReleased(version: "99.0.0"),
+            notes: "Text-only Gemma4 override; see the gemma4 entry for upstream tracking "
+                + "(PR #244 / issues #282, #231). "
+                + "(removeWhen 99.0.0 is a placeholder until a fixed release exists.)",
+            creator: creator(
+                Gemma4PatchedTextConfiguration.self, Gemma4PatchedTextModel.init)
+        ),
     ]
 
     /// Registers the given entries onto a registry (overwriting any existing entry for
@@ -65,6 +97,7 @@ public enum OLMLXExtensions {
             }
             return "[\(entry.kind.rawValue)] \(entry.modelType) — \(removal) "
                 + "— tracking \(entry.upstreamTracking.absoluteString) (added \(entry.addedOn))"
+                + " — \(entry.notes)"
         }.joined(separator: "\n")
     }
 
